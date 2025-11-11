@@ -1,3 +1,5 @@
+import org.gradle.internal.impldep.org.junit.experimental.categories.Categories.CategoryFilter.exclude
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -59,6 +61,7 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(libs.androidx.material3)
 
     // CameraX
     implementation(libs.androidx.camera.camera2)
@@ -79,7 +82,7 @@ dependencies {
         exclude(group = "com.google.ai.edge.litert", module = "litert-support-api")
     }
 
-// TensorFlow Lite (tetap gunakan versi resmi)
+    // TensorFlow Lite (tetap gunakan versi resmi)
     implementation(libs.tensorflow.lite)
     implementation(libs.tensorflow.lite.support)
     implementation(libs.tensorflow.lite.metadata)

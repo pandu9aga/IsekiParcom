@@ -18,15 +18,18 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import androidx.camera.view.PreviewView
+import androidx.activity.ComponentActivity
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 
-class QrScannerActivity : AppCompatActivity() {
+class QrScannerActivity : ComponentActivity() {
     private lateinit var previewView: PreviewView
     private val REQUEST_CODE_PERMISSIONS = 10
     private val REQUIRED_PERMISSIONS = arrayOf(Manifest.permission.CAMERA)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        previewView = PreviewView(this)
+        previewView = PreviewView(this) // <-- Assign ke 'lateinit var previewView'
         setContentView(previewView)
 
         if (allPermissionsGranted()) {
@@ -81,6 +84,7 @@ class QrScannerActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
+    @OptIn(ExperimentalGetImage::class)
     private fun analyzeImage(imageProxy: androidx.camera.core.ImageProxy) {
         val mediaImage = imageProxy.image ?: return
         val inputImage = InputImage.fromMediaImage(mediaImage, 0)

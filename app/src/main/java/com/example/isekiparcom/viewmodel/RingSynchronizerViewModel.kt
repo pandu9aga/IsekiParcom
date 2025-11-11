@@ -6,6 +6,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.isekiparcom.utils.TfliteInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,8 +45,10 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     val capturedPhotoFile = mutableStateOf<File?>(null)
     val resultStatus = mutableStateOf<String?>(null)
     val showUploadButton = mutableStateOf(false)
+    val saveSuccess = mutableStateOf<Boolean?>(null)
 
     fun handleQrScanned(rawQr: String) {
+        Log.d("QRDEBUG", "QR Scanned: $rawQr")
         try {
             val parts = rawQr.split(";")
             if (parts.size < 3) throw Exception("Format QR salah")
@@ -58,36 +61,48 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
         }
     }
 
-    private fun fetchPartByTractorType(tractorType: String) {
-        CoroutineScope(Dispatchers.IO).launch {
+    fun fetchPartByTractorType(tractorType: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val url = "$apiUrl/ring-synchronizer/part-by-tractor/${tractorType}"
+            Log.d("API_DEBUG", "Fetching part for tractorType: $tractorType")
+            Log.d("API_DEBUG", "API URL: $url")
+
+            val client = OkHttpClient()
+            val request = Request.Builder().url(url).build()
+
             try {
-                val url = "$apiUrl/ring-synchronizer/part-by-tractor/${tractorType}"
-                val request = Request.Builder().url(url).build()
                 val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val jsonStr = response.body?.string()
-                    if (jsonStr != "null") {
-                        val json = JSONObject(jsonStr)
-                        val part = PartData(
-                            idPart = json.getInt("id_part"),
-                            codePart = json.getString("code_part"),
-                            namePart = json.getString("name_part"),
-                            idTractor = json.getInt("id_tractor"),
-                            idComparison = json.getInt("id_comparison")
-                        )
-                        withContext(Dispatchers.Main) {
-                            foundPart.value = part
-                        }
+                val code = response.code
+                val rawBody = response.body?.string()
+                Log.d("API_DEBUG", "HTTP $code | Body raw: $rawBody")
+
+                if (code == 200 && !rawBody.isNullOrBlank() && rawBody.trim() != "{}") {
+                    val json = JSONObject(rawBody)
+                    val part = PartData(
+                        idComparison = json.getInt("Id_Comparison"),
+                        codePart = json.getString("Code_Part"),
+                        namePart = json.getString("Name_Part"),
+                        idPart = json.getInt("Id_Part"),
+                        idTractor = json.getInt("Id_Tractor")
+                    )
+
+                    withContext(Dispatchers.Main) {
+                        foundPart.value = part
+                        Log.d("API_DEBUG", "✅ Part parsed: $part")
                     }
+                } else {
+                    Log.e("API_DEBUG", "⚠️ Body kosong atau format salah: $rawBody")
                 }
             } catch (e: Exception) {
-                Log.e("API", "Fetch part error", e)
+                Log.e("API_DEBUG", "Error fetching part: ${e.message}", e)
             }
         }
     }
 
-    fun validateRule() {
-        val result = scanResult.value ?: return
+    fun validateRule(onComplete: (Boolean) -> Unit) {
+        val result = scanResult.value ?: run { onComplete(false); return }
+        val part = foundPart.value ?: run { onComplete(false); return }
+
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val json = JSONObject().apply {
@@ -95,7 +110,6 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
                     put("id_comparison", result.idComparison)
                 }
 
-                // ✅ Perbaikan: gunakan MediaType.get() + RequestBody.create()
                 val mediaType = "application/json; charset=utf-8".toMediaType()
                 val body = RequestBody.create(mediaType, json.toString())
 
@@ -107,12 +121,23 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
                 val respJson = JSONObject(response.body?.string())
                 val success = respJson.getBoolean("success")
                 val message = respJson.getString("message")
+
                 withContext(Dispatchers.Main) {
                     validationMessage.value = message
-                    if (success) showCaptureButton.value = true
+                    if (success) {
+                        showCaptureButton.value = true
+                    } else {
+                        showCaptureButton.value = false
+                    }
+                    onComplete(success)
                 }
             } catch (e: Exception) {
                 Log.e("API", "Validate error", e)
+                withContext(Dispatchers.Main) {
+                    validationMessage.value = "Gagal memvalidasi: ${e.message}"
+                    showCaptureButton.value = false
+                    onComplete(false)
+                }
             }
         }
     }
@@ -167,11 +192,18 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
                 val json = JSONObject(response.body?.string())
                 if (json.getBoolean("success")) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
+                        saveSuccess.value = true // 🔥 Set state untuk kembali
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Gagal menyimpan: ${json.optString("message", "Error tidak diketahui")}", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
                 Log.e("Upload", "Gagal", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Upload gagal: ${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -179,5 +211,22 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     override fun onCleared() {
         tflite.close()
         super.onCleared()
+    }
+
+    fun setResult(result: String, photoFile: File) {
+        Log.d("VM_DEBUG", "setResult called with result: $result, file: ${photoFile.name}") // 🔍 Log pemanggilan fungsi
+        resultStatus.value = result
+        capturedPhotoFile.value = photoFile
+        showUploadButton.value = true
+        Log.d("VM_DEBUG", "showUploadButton set to: ${showUploadButton.value}") // 🔍 Log perubahan state
+    }
+
+    // 🔥 Fungsi untuk mereset setelah validasi gagal (opsional)
+    fun resetAfterValidationError() {
+        showCaptureButton.value = false
+        resultStatus.value = null
+        capturedPhotoFile.value = null
+        showUploadButton.value = false
+        saveSuccess.value = null
     }
 }
