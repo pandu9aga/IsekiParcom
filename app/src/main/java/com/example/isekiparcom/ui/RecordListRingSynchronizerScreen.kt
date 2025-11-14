@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,14 +20,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.google.accompanist.swiperefresh.SwipeRefresh
+import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import com.google.accompanist.swiperefresh.SwipeRefresh
-import com.google.accompanist.swiperefresh.rememberSwipeRefreshState
+import org.json.JSONObject // Tambahkan import ini
 
+// ... data class RecordItem (sama seperti sebelumnya) ...
 data class RecordItem(
     val id: Int,
     val noTractor: String,
@@ -50,49 +54,89 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
         scope.launch(Dispatchers.IO) {
             try {
                 val url = "http://192.168.173.207/iseki_parcom/public/api/ring-synchronizer/index"
-                val response = client.newCall(Request.Builder().url(url).build()).execute()
+                val request = Request.Builder().url(url).build()
+                val response = client.newCall(request).execute()
+
+                if (!response.isSuccessful) {
+                    Log.e("RecordList", "API request failed: ${response.code}")
+                    return@launch
+                }
+
                 val body = response.body?.string() ?: "[]"
+                Log.d("RecordList", "Raw API response: $body") // Log raw response
+
                 val jsonArr = JSONArray(body)
                 val list = mutableListOf<RecordItem>()
 
                 for (i in 0 until jsonArr.length()) {
                     val obj = jsonArr.getJSONObject(i)
-                    val comparison = obj.getJSONObject("comparison").getString("Name_Comparison")
-                    val tractor = obj.getJSONObject("tractor").getString("Type_Tractor")
-                    val part = obj.getJSONObject("part").getString("Code_Part")
+
+                    // Ambil objek nested
+                    val comparisonObj = obj.optJSONObject("comparison") // Gunakan opt untuk aman
+                    val tractorObj = obj.optJSONObject("tractor")
+                    val partObj = obj.optJSONObject("part")
+
+                    // Ambil string, fallback ke "" jika null
+                    val comparisonName = comparisonObj?.optString("Name_Comparison") ?: ""
+                    val tractorType = tractorObj?.optString("Type_Tractor") ?: ""
+                    val partCode = partObj?.optString("Code_Part") ?: ""
 
                     list.add(
                         RecordItem(
-                            id = obj.getInt("Id_Record"),
-                            noTractor = obj.getString("No_Tractor_Record"),
-                            nameTractor = tractor,
-                            comparison = comparison,
-                            codePart = part,
-                            result = obj.getString("Result_Record"),
-                            timeRecord = obj.getString("Time_Record")
+                            id = obj.optInt("Id_Record"), // Gunakan optInt
+                            noTractor = obj.optString("No_Tractor_Record"),
+                            nameTractor = tractorType,
+                            comparison = comparisonName,
+                            codePart = partCode,
+                            result = obj.optString("Result_Record"),
+                            timeRecord = obj.optString("Time_Record")
                         )
                     )
                 }
-                records = list
+                // Publish hasil ke state di Main thread
+                withContext(Dispatchers.Main) {
+                    records = list
+                }
+            } catch (e: org.json.JSONException) {
+                Log.e("RecordList", "JSON parsing error: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    // Bisa kosongkan list atau tampilkan error lain
+                    records = emptyList()
+                }
             } catch (e: Exception) {
-                Log.e("RecordList", "Error: ${e.message}")
+                Log.e("RecordList", "General error: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    records = emptyList()
+                }
             } finally {
-                isLoading = false
-                isRefreshing = false
+                // Hanya set isLoading ke false di Main thread
+                withContext(Dispatchers.Main) {
+                    isLoading = false
+                    isRefreshing = false
+                }
             }
         }
     }
 
+    // Panggil fetchRecords saat komposable pertama kali dikompos
     LaunchedEffect(Unit) {
         fetchRecords()
-        // 🔥 Pastikan tombol back dari list selalu ke dashboard
-        navController.popBackStack("dashboard", inclusive = false)
+        // 🔥 HAPUS BARIS INI:
+        // navController.popBackStack("dashboard", inclusive = false)
     }
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Ring Synchronizer", color = Color.White) },
+                title = { Text("Ring Synchronizer", color = MaterialTheme.colorScheme.onPrimary) },
+                navigationIcon = { // Tambahkan tombol back
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                            contentDescription = "Kembali"
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
@@ -100,7 +144,12 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
         }
     ) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
         } else {
@@ -110,7 +159,7 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
                 state = rememberSwipeRefreshState(isRefreshing),
                 onRefresh = {
                     isRefreshing = true
-                    fetchRecords()
+                    fetchRecords() // Panggil ulang data
                 }
             ) {
                 Column(
@@ -118,7 +167,7 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
                         .fillMaxSize()
                         .padding(padding)
                         .padding(12.dp)
-                        .horizontalScroll(horizontalScroll)
+                        .horizontalScroll(horizontalScroll) // Izinkan scroll horizontal jika lebar tabel melebihi layar
                 ) {
                     // 🔹 Tombol Scan di atas tabel
                     Button(
@@ -137,8 +186,11 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
                     // 🔹 Header Table
                     Row(
                         Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(4.dp))
+                            .fillMaxWidth() // Pastikan Row header mengisi lebar penuh
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer,
+                                RoundedCornerShape(4.dp)
+                            )
                             .padding(vertical = 8.dp)
                     ) {
                         HeaderText("No", 30.dp)
@@ -152,27 +204,46 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
 
                     Divider(color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.4f))
 
-                    // 🔹 Tabel scroll vertikal
-                    LazyColumn {
-                        itemsIndexed(records) { index, record ->
-                            val rowBg = if (index % 2 == 0)
-                                MaterialTheme.colorScheme.surface
-                            else
-                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                    // 🔹 Tabel scroll vertikal atau pesan kosong
+                    if (records.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize() // Gunakan fillMaxSize agar pesan muncul di tengah area yang tersedia setelah header
+                                .padding(16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Tidak ada data hari ini.",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 16.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth() // Pastikan LazyColumn mengisi lebar penuh
+                        ) {
+                            itemsIndexed(records) { index, record ->
+                                val rowBg = if (index % 2 == 0)
+                                    MaterialTheme.colorScheme.surface
+                                else
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
 
-                            Row(
-                                modifier = Modifier
-                                    .background(rowBg)
-                                    .padding(vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                CellText("${index + 1}", 30.dp)
-                                CellText(record.noTractor, 60.dp)
-                                CellText(record.nameTractor, 80.dp)
-                                CellText(record.comparison, 90.dp)
-                                CellText(record.codePart, 90.dp)
-                                ResultBadge(record.result, 60.dp)
-                                CellText(record.timeRecord, 100.dp)
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth() // Pastikan Row item mengisi lebar penuh
+                                        .background(rowBg)
+                                        .padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CellText("${index + 1}", 30.dp)
+                                    CellText(record.noTractor, 60.dp)
+                                    CellText(record.nameTractor, 80.dp)
+                                    CellText(record.comparison, 90.dp)
+                                    CellText(record.codePart, 90.dp)
+                                    ResultBadge(record.result, 60.dp)
+                                    CellText(record.timeRecord, 100.dp)
+                                }
                             }
                         }
                     }
@@ -182,6 +253,7 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
     }
 }
 
+// ... fungsi HeaderText, CellText, ResultBadge (sama seperti sebelumnya) ...
 @Composable
 fun HeaderText(text: String, width: Dp) {
     Text(
