@@ -62,6 +62,8 @@ dependencies {
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation(libs.androidx.material3)
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
+
 
     // CameraX
     implementation(libs.androidx.camera.camera2)

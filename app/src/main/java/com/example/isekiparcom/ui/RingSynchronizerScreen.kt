@@ -36,38 +36,64 @@ fun RingSynchronizerScreen(navController: NavHostController) {
     )
 
     var showCamera by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    // auto validasi part
+    // 🔹 Snackbar otomatis saat validasi selesai
+    LaunchedEffect(viewModel.validationMessage.value) {
+        viewModel.validationMessage.value?.let { msg ->
+            snackbarHostState.showSnackbar(
+                message = msg,
+                withDismissAction = true,
+                duration = SnackbarDuration.Short
+            )
+        }
+    }
+
+    // 🔹 Auto validasi setelah part ditemukan
     LaunchedEffect(viewModel.foundPart.value) {
         if (viewModel.foundPart.value != null && viewModel.scanResult.value != null) {
             viewModel.validateRule {}
         }
     }
 
-    // sukses simpan → kembali ke MainActivity
+    // 🔹 Kembali ke Record List setelah simpan
     LaunchedEffect(viewModel.saveSuccess.value) {
         if (viewModel.saveSuccess.value == true) {
             Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            val intent = Intent(context, MainActivity::class.java)
-            context.startActivity(intent)
-            (context as? Activity)?.finish()
+
+            // 🔥 Beri sinyal ke list agar refresh data
+            navController.previousBackStackEntry
+                ?.savedStateHandle
+                ?.set("refreshRecords", true)
+
+            // 🔥 Kembali ke Record List
+            navController.popBackStack()
+
+            // Reset flag agar tidak retrigger
+            viewModel.saveSuccess.value = null
         }
     }
 
-    // tampilkan kamera popup
-    if (showCamera) {
-        CameraCaptureScreen(
-            expectedCodePart = viewModel.foundPart.value?.codePart ?: "UNKNOWN",
-            onPredictionResult = { result, file ->
-                // 🔥 SETELAH CAMERA SELESAI, SIMPAN HASIL KE VIEWMODEL
-                viewModel.setResult(result, file)
-                showCamera = false
-            },
-            onBack = { showCamera = false }
-        )
-    } else {
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        // ======================
+        // 🔹 LAYER 1 — UI utama
+        // ======================
         Scaffold(
-            topBar = { CenterAlignedTopAppBar(title = { Text("Ring Synchronizer") }) }
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            "Ring Synchronizer",
+                            color = MaterialTheme.colorScheme.onPrimary // 🔹 putih
+                        )
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary, // 🔹 pink
+                        titleContentColor = MaterialTheme.colorScheme.onPrimary // 🔹 putih
+                    )
+                )
+            }
         ) { padding ->
             Column(
                 modifier = Modifier
@@ -88,86 +114,151 @@ fun RingSynchronizerScreen(navController: NavHostController) {
 
                 Button(onClick = {
                     launcher.launch(Intent(context, QrScannerActivity::class.java))
-                }) { Text("Scan QR") }
-
-                Spacer(Modifier.height(8.dp))
-
-                // tampilkan data hasil scan
-                viewModel.scanResult.value?.let {
-                    Text("Sequence No: ${it.sequenceNo}")
-                    Text("Tractor Type: ${it.tractorType}")
+                }) {
+                    Text("Scan QR")
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
+
+                viewModel.scanResult.value?.let {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer // 🔹 PinkContainer
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Text(
+                                "Sequence No: ${it.sequenceNo}",
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                "Tractor Type: ${it.tractorType}",
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
+                }
 
                 viewModel.foundPart.value?.let {
-                    Text("Code Part: ${it.codePart}")
-                    Text("Name Part: ${it.namePart}")
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer // 🔹 PinkContainer
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp)
+                        ) {
+                            Text(
+                                "Code Part: ${it.codePart}",
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                "Name Part: ${it.namePart}",
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
+                    }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(20.dp))
+
+                // 🔹 TAMPILKAN BADGE VALIDASI RULE
+                viewModel.validationMessage.value?.let { msg ->
+                    val success = msg.contains("Siap melanjutkan", ignoreCase = true)
+                    val badgeColor = if (success) Color(0xFF4CAF50) else Color(0xFFE53935)
+                    val textColor = Color.White
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(badgeColor, shape = MaterialTheme.shapes.medium)
+                            .padding(vertical = 14.dp, horizontal = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = msg,
+                            color = textColor,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+                }
 
                 if (viewModel.showCaptureButton.value) {
-                    Button(onClick = { showCamera = true }) {
+                    Button(
+                        onClick = { showCamera = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Ambil Foto")
                     }
                 }
 
-                // 🔥 HAPUS BAGIAN INI: TIDAK ADA PREVIEW GAMBAR
-                /*
-                viewModel.capturedPhotoFile.value?.let { file ->
-                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                    Image(
-                        bitmap = bmp.asImageBitmap(),
-                        contentDescription = "Hasil Foto",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(250.dp)
-                            .padding(8.dp)
-                    )
-                }
-                */
+                Spacer(Modifier.height(24.dp))
 
-                // 🔥 TAMPILKAN HASIL AI DAN TOMBOL SIMPAN SECARA LANGSUNG
+                // 🔹 HASIL FOTO OK / NG (BADGE BESAR)
                 viewModel.resultStatus.value?.let { status ->
-                    val color = if (status == "OK") Color.Green else Color.Red
-                    val label = if (status == "OK") "BERHASIL" else "GAGAL"
+                    val color = if (status == "OK") Color(0xFF43A047) else Color(0xFFE53935)
+                    val label = if (status == "OK") "OK" else "NG"
+
                     Box(
                         Modifier
                             .fillMaxWidth()
+                            .height(160.dp)
                             .background(color, MaterialTheme.shapes.medium)
-                            .padding(16.dp),
+                            .padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(label, color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            label,
+                            color = Color.White,
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
 
-                    // 🔥 TOMBOL SIMPAN HASIL LANGSUNG MUNCUL SETELAH AI SELESAI
+                    Spacer(Modifier.height(24.dp))
+
                     Button(
                         onClick = { viewModel.uploadResult() },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Simpan Hasil")
+                        Text("Simpan Hasil", color = Color.White)
                     }
-
-                    // 🔥 HAPUS TOMBOL AMBIL ULANG
-                    /*
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Button(onClick = { viewModel.uploadResult() }) {
-                            Text("Simpan Hasil")
-                        }
-                        Button(onClick = {
-                            viewModel.resetAfterValidationError()
-                            showCamera = true
-                        }) {
-                            Text("Ambil Ulang")
-                        }
-                    }
-                    */
                 }
+            }
+        }
+
+        // ======================
+        // 🔹 LAYER 2 — Kamera (Overlay)
+        // ======================
+        if (showCamera) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+            ) {
+                CameraCaptureScreen(
+                    expectedCodePart = viewModel.foundPart.value?.codePart ?: "UNKNOWN",
+                    onPredictionResult = { result, file ->
+                        viewModel.setResult(result, file)
+                        showCamera = false
+                    },
+                    onBack = { showCamera = false }
+                )
             }
         }
     }

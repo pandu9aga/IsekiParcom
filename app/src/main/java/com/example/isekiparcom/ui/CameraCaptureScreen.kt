@@ -182,8 +182,7 @@ fun CameraCaptureScreen(
                     modifier = Modifier
                         .padding(24.dp)
                         .height(60.dp)
-                        .fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E88E5))
+                        .fillMaxWidth()
                 ) {
                     Text("AMBIL FOTO", color = Color.White)
                 }

@@ -8,13 +8,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.isekiparcom.ui.DashboardScreen
+import com.example.isekiparcom.ui.RecordListRingSynchronizerScreen
 import com.example.isekiparcom.ui.RingSynchronizerScreen
+import com.example.isekiparcom.ui.theme.IsekiParcomTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            IsekiParcomApp()
+            IsekiParcomTheme {
+                IsekiParcomApp()
+            }
         }
     }
 }
@@ -24,8 +28,8 @@ fun IsekiParcomApp() {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
-        composable("ring_synchronizer") {
-            RingSynchronizerScreen(navController)
-        }
+        composable("ring_synchronizer") { RingSynchronizerScreen(navController) }
+        composable("record_list_ring") { RecordListRingSynchronizerScreen(navController) } // ✅ route baru
     }
+
 }
