@@ -22,20 +22,8 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-
-data class ScanResult(
-    val sequenceNo: String,
-    val tractorType: String,
-    val idComparison: Int = 2 // 🔥 Ganti jadi 2 untuk Bearing KBC
-)
-
-data class PartData(
-    val idPart: Int,
-    val codePart: String,
-    val namePart: String,
-    val idTractor: Int,
-    val idComparison: Int
-)
+import com.example.isekiparcom.viewmodel.ScanResult
+import com.example.isekiparcom.viewmodel.PartData
 
 class BearingKbcViewModel(private val context: Context) : ViewModel() {
     private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api" // Ganti jika perlu
@@ -61,7 +49,7 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
             if (parts.size < 3) throw Exception("Format QR salah")
             val sequenceNo = parts[0].trim()
             val tractorType = parts[2].trim()
-            scanResult.value = ScanResult(sequenceNo, tractorType)
+            scanResult.value = ScanResult(sequenceNo, tractorType, idComparison = 2)
             fetchPartByTractorType(tractorType)
         } catch (e: Exception) {
             Log.e("QR", "Parse error", e)
