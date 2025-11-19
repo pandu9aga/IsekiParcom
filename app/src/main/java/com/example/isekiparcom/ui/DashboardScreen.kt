@@ -50,11 +50,11 @@ fun DashboardScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 🔹 Kotak utama
+            // 🔹 Kotak utama untuk Ring Synchronizer
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 24.dp),
+                    .padding(vertical = 12.dp), // Kurangi sedikit padding vertikal
                 shape = MaterialTheme.shapes.extraLarge,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.onPrimary
@@ -111,6 +111,74 @@ fun DashboardScreen(navController: NavHostController) {
                     }
                 }
             }
+
+            // 🔹 Kartu untuk Bearing KBC (baru)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp), // Sesuaikan padding
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.onPrimary // Gunakan warna dasar yang sama
+                ),
+                elevation = CardDefaults.cardElevation(6.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Bearing KBC",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            color = MaterialTheme.colorScheme.primary, // Gunakan warna primer untuk konsistensi
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        // 🔸 Tombol List Bearing KBC (jika sudah dibuat)
+                        Button(
+                            onClick = { navController.navigate("record_list_bearing_kbc") }, // 🔥 Ganti dengan route yang benar nanti
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("List", color = Color.White)
+                        }
+
+                        Spacer(modifier = Modifier.width(16.dp))
+
+                        // 🔸 Tombol Scan Bearing KBC
+                        Button(
+                            onClick = { navController.navigate("bearing_kbc") }, // 🔥 Route ini harus sesuai dengan NavHost
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.secondary
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                        ) {
+                            Text("Scan", color = Color.White)
+                        }
+                    }
+                }
+            }
+
+            // 🔹 Atau, jika kamu ingin hanya menambahkan item seperti Ring Synchronizer di atas:
+            // DashboardMenuItem(
+            //     title = "Bearing KBC",
+            //     onClick = { navController.navigate("bearing_kbc") }
+            // )
         }
     }
 }

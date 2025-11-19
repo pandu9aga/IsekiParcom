@@ -29,7 +29,8 @@ fun IsekiParcomApp() {
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
         composable("ring_synchronizer") { RingSynchronizerScreen(navController) }
-        composable("record_list_ring") { RecordListRingSynchronizerScreen(navController) } // ✅ route baru
+        composable("record_list_ring") { RecordListRingSynchronizerScreen(navController) }
+        composable("bearing_kbc") { BearingKbcScreen(navController) }
     }
 
 }
