@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.isekiparcom.ui.BearingKbcScreen
 import com.example.isekiparcom.ui.DashboardScreen
 import com.example.isekiparcom.ui.RecordListRingSynchronizerScreen
 import com.example.isekiparcom.ui.RingSynchronizerScreen
