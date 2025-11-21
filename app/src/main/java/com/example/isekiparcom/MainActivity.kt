@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.isekiparcom.ui.BearingKbcScreen
+import com.example.isekiparcom.ui.BearingKoyoScreen
 import com.example.isekiparcom.ui.DashboardScreen
 import com.example.isekiparcom.ui.RecordListRingSynchronizerScreen
 import com.example.isekiparcom.ui.RingSynchronizerScreen
@@ -32,6 +33,7 @@ fun IsekiParcomApp() {
         composable("ring_synchronizer") { RingSynchronizerScreen(navController) }
         composable("record_list_ring") { RecordListRingSynchronizerScreen(navController) }
         composable("bearing_kbc") { BearingKbcScreen(navController) }
+        composable("bearing_koyo") { BearingKoyoScreen(navController) }
     }
 
 }

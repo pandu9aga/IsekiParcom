@@ -1,4 +1,4 @@
-// app/src/main/java/com/example/isekiparcom/ui/BearingKbcScreen.kt
+// app/src/main/java/com/example/isekiparcom/ui/BearingKoyoScreen.kt
 
 package com.example.isekiparcom.ui
 
@@ -28,15 +28,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.isekiparcom.QrScannerActivity
-import com.example.isekiparcom.viewmodel.BearingKbcViewModel
-import com.example.isekiparcom.viewmodel.BearingKbcViewModelFactory
+import com.example.isekiparcom.viewmodel.BearingKoyoViewModel
+import com.example.isekiparcom.viewmodel.BearingKoyoViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BearingKbcScreen(navController: NavHostController) {
+fun BearingKoyoScreen(navController: NavHostController) {
     val context = LocalContext.current
-    val viewModel: BearingKbcViewModel = viewModel(
-        factory = BearingKbcViewModelFactory(context)
+    val viewModel: BearingKoyoViewModel = viewModel(
+        factory = BearingKoyoViewModelFactory(context)
     )
 
     var showCameraPart by remember { mutableStateOf(false) }
@@ -62,7 +62,7 @@ fun BearingKbcScreen(navController: NavHostController) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Bearing KBC") },
+                    title = { Text("Bearing KOYO") },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
@@ -153,7 +153,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                 // Hasil deteksi part
                 viewModel.partDetectionResult.value?.let { result ->
                     Spacer(Modifier.height(16.dp))
-                    val color = if (result.lowercase() == "shaft") Color(0xFF4CAF50) else Color(0xFFE53935)
+                    val color = if (result.lowercase() == "metal") Color(0xFF4CAF50) else Color(0xFFE53935)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -169,14 +169,14 @@ fun BearingKbcScreen(navController: NavHostController) {
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    if (result.lowercase() == "shaft") {
+                    if (result.lowercase() == "metal") {
                         Text("Lanjutkan ke OCR...")
                     } else {
-                        Text("Part bukan Shaft. Proses selesai.")
+                        Text("Part bukan Metal. Proses selesai.")
                     }
                 }
 
-                // Tombol ambil foto OCR (muncul jika part = shaft)
+                // Tombol ambil foto OCR (muncul jika part = metal)
                 if (viewModel.showSecondCaptureButton.value) {
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = { showCameraOcr = true }) {
@@ -190,10 +190,10 @@ fun BearingKbcScreen(navController: NavHostController) {
                     Card {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text("OCR Result (cleaned): $ocr")
-                            if (ocr.contains("KBC", ignoreCase = true)) {
-                                Text("Status: OK (Mengandung teks KBC)", color = Color.Green)
+                            if (ocr.contains("KOYO", ignoreCase = true)) {
+                                Text("Status: OK (Mengandung teks KOYO)", color = Color.Green)
                             } else {
-                                Text("Status: NG (Tidak mengandung teks KBC)", color = Color.Red)
+                                Text("Status: NG (Tidak mengandung teks KOYO)", color = Color.Red)
                             }
                         }
                     }
