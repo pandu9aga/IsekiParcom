@@ -9,8 +9,16 @@ import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
+import java.io.FileInputStream
+import java.io.IOException
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 
-class TfliteInference(context: Context) {
+class TfliteInference(
+    context: Context,
+    modelAssetPath: String, // Contoh: "ring_synchronizer/model_unquant.tflite"
+    labelsAssetPath: String // Contoh: "ring_synchronizer/labels.txt"
+) {
     private var interpreter: Interpreter? = null
     private var labels = listOf<String>()
 
@@ -20,17 +28,40 @@ class TfliteInference(context: Context) {
 
     init {
         try {
-            val model = FileUtil.loadMappedFile(context, "ring_synchronizer/model_unquant.tflite")
-            interpreter = Interpreter(model)
-            labels = context.assets.open("ring_synchronizer/labels.txt")
-                .bufferedReader().readLines()
-            Log.d(TAG, "Model loaded successfully")
+            // 1. Muat model dari Assets
+            val modelBuffer = loadModelFile(context, modelAssetPath)
+            interpreter = Interpreter(modelBuffer)
+
+            // 2. Muat labels dari Assets
+            labels = loadLabels(context, labelsAssetPath)
+
+            Log.d(TAG, "Model loaded successfully from: $modelAssetPath")
             Log.d(TAG, "Labels loaded: ${labels.size} classes")
-            Log.d(TAG, "Full Labels list: $labels")
+            // Log.d(TAG, "Full Labels list: $labels") // Comment jika terlalu panjang
+
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing TFLite", e)
+            Log.e(TAG, "Error initializing TFLite from paths: $modelAssetPath, $labelsAssetPath", e)
             e.printStackTrace()
         }
+    }
+
+    // Fungsi untuk memuat model dari assets
+    private fun loadModelFile(context: Context, modelPath: String): MappedByteBuffer {
+        val fileDescriptor = context.assets.openFd(modelPath)
+        val inputStream = FileInputStream(fileDescriptor.fileDescriptor)
+        val fileChannel = inputStream.channel
+        val startOffset = fileDescriptor.startOffset
+        val declaredLength = fileDescriptor.declaredLength
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength).also {
+            inputStream.close()
+        }
+    }
+
+    // Fungsi untuk memuat labels dari assets
+    private fun loadLabels(context: Context, labelsPath: String): List<String> {
+        return context.assets.open(labelsPath)
+            .bufferedReader()
+            .readLines()
     }
 
     fun run(bitmap: Bitmap): String {
@@ -56,7 +87,7 @@ class TfliteInference(context: Context) {
             val tensorImage = TensorImage.fromBitmap(bitmap)
             val processor = ImageProcessor.Builder()
                 .add(ResizeOp(height, width, ResizeOp.ResizeMethod.BILINEAR))
-                .add(NormalizeOp(0f, 255f))
+                .add(NormalizeOp(0f, 255f)) // Sesuaikan dengan preprocessing modelmu
                 .build()
             val resized = processor.process(tensorImage)
 
@@ -71,11 +102,10 @@ class TfliteInference(context: Context) {
             val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: 0
             val confidence = probabilities[maxIndex]
 
-            // 🔧 AMBIL LABEL ASLI
             val predictedLabel = labels.getOrNull(maxIndex) ?: "unknown"
             Log.d(TAG, "Raw predicted label: '$predictedLabel', Index: $maxIndex, Confidence: $confidence")
 
-            // 🔧 AMBIL BAGIAN ANGKA SAJA
+            // 🔧 Ambil bagian angka saja (jika formatnya "0 12345")
             val extractedCode = extractCode(predictedLabel)
             Log.d(TAG, "Extracted code: '$extractedCode'")
 
@@ -87,19 +117,11 @@ class TfliteInference(context: Context) {
         }
     }
 
-    /**
-     * Fungsi untuk mengekstrak kode dari label.
-     * Misal: "1 1800214202" -> "1800214202"
-     *        "0 1650214204" -> "1650214204"
-     */
     private fun extractCode(label: String): String {
-        // Pisahkan berdasarkan spasi
         val parts = label.trim().split("\\s+".toRegex())
         if (parts.size >= 2) {
-            // Ambil bagian kedua (indeks 1) yang berisi kode
             return parts[1]
         }
-        // Jika tidak sesuai format, kembalikan label aslinya (jika hanya berisi kode)
         return label.trim()
     }
 

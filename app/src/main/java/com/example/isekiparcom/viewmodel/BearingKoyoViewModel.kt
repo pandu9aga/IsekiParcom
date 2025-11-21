@@ -28,7 +28,7 @@ import com.example.isekiparcom.viewmodel.PartData
 class BearingKoyoViewModel(private val context: Context) : ViewModel() {
     private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api" // Ganti jika perlu
     private val client = OkHttpClient()
-    private val tflite = TfliteInference(context) // Pastikan model shaft/metal ada
+    private val tflite = TfliteInference(context, "bearing_kbc/model_unquant.tflite", "bearing_kbc/labels.txt")
 
     val scanResult = mutableStateOf<ScanResult?>(null)
     val foundPart = mutableStateOf<PartData?>(null)

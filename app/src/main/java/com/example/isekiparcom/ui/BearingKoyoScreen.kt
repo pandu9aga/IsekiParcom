@@ -62,15 +62,23 @@ fun BearingKoyoScreen(navController: NavHostController) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Bearing KOYO") },
+                    title = {
+                        Text(
+                            "Bearing KOYO",
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBack,
+                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
                                 contentDescription = "Kembali"
                             )
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }

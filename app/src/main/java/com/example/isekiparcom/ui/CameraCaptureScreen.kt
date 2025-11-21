@@ -154,7 +154,7 @@ fun CameraCaptureScreen(
                                     coroutineScope.launch {
                                         isLoading = true
                                         try {
-                                            val tflite = TfliteInference(context)
+                                            val tflite = TfliteInference(context, "ring_synchronizer/model_unquant.tflite", "ring_synchronizer/labels.txt")
                                             val result = processImageWithTflite(bmp, tflite, expectedCodePart)
                                             val compressed = compressBitmap(context, bmp, 500)
 

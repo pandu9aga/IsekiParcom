@@ -1,5 +1,3 @@
-import org.gradle.internal.impldep.org.junit.experimental.categories.Categories.CategoryFilter.exclude
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -54,6 +52,10 @@ dependencies {
     implementation(libs.androidx.navigation.runtime.android)
     implementation(libs.androidx.navigation.compose.android)
     implementation(libs.androidx.appcompat)
+
+    // ❌ HAPUS BARIS INI:
+    // implementation(libs.litert.support.api)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -61,9 +63,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation(libs.androidx.material3)
-    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 
+    // ⚠️ HAPUS GANDA (sudah ada di bom)
+    // implementation(libs.androidx.material3)
+
+    implementation("com.google.accompanist:accompanist-swiperefresh:0.32.0")
 
     // CameraX
     implementation(libs.androidx.camera.camera2)

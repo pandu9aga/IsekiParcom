@@ -43,9 +43,18 @@ fun BearingKbcScreen(navController: NavHostController) {
     var showCameraOcr by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Auto validasi setelah part ditemukan
+    // ❌ HAPUS LAUNCHED EFFECT INI KARENA TIDAK ADA foundPart LAGI
+    /*
     LaunchedEffect(viewModel.foundPart.value) {
         if (viewModel.foundPart.value != null && viewModel.scanResult.value != null) {
+            viewModel.validateRule()
+        }
+    }
+    */
+
+    // ✅ GANTI DENGAN INI: Validasi setelah QR discan jika belum divalidasi
+    LaunchedEffect(viewModel.scanResult.value) {
+        if (viewModel.scanResult.value != null && viewModel.validationMessage.value == null) {
             viewModel.validateRule()
         }
     }
@@ -62,15 +71,23 @@ fun BearingKbcScreen(navController: NavHostController) {
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Bearing KBC") },
+                    title = {
+                        Text(
+                            "Bearing KBC",
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    },
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
-                                imageVector = Icons.Default.ArrowBack,
+                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
                                 contentDescription = "Kembali"
                             )
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 )
             },
             snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -112,6 +129,8 @@ fun BearingKbcScreen(navController: NavHostController) {
                     }
                 }
 
+                // ❌ HAPUS BAGIAN INI KARENA TIDAK ADA PART LAGI
+                /*
                 viewModel.foundPart.value?.let {
                     Spacer(Modifier.height(10.dp))
                     Card(
@@ -126,6 +145,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                         }
                     }
                 }
+                */
 
                 Spacer(Modifier.height(16.dp))
 
@@ -144,7 +164,8 @@ fun BearingKbcScreen(navController: NavHostController) {
                     Spacer(Modifier.height(20.dp))
                 }
 
-                if (viewModel.showCaptureButton.value) {
+                // 🔥 TOMBOL AMBIL FOTO PART SEKARANG LANGSUNG MUNCUL SETELAH VALIDASI
+                if (viewModel.showCaptureButton.value && viewModel.partDetectionResult.value == null) {
                     Button(onClick = { showCameraPart = true }) {
                         Text("Ambil Foto Part")
                     }
@@ -261,7 +282,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.95f))
             ) {
-                CameraCaptureScreen( // Gunakan screen yang sama, atau buat yang baru
+                CameraCaptureScreen(
                     expectedCodePart = "IGNORED_FOR_OCR", // Tidak digunakan
                     onPredictionResult = { _, file ->
                         viewModel.capturedOcrPhotoFile.value = file

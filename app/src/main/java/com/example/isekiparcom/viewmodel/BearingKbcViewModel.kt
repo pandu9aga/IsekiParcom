@@ -1,5 +1,3 @@
-// app/src/main/java/com/example/isekiparcom/viewmodel/BearingKbcViewModel.kt
-
 package com.example.isekiparcom.viewmodel
 
 import android.content.Context
@@ -22,21 +20,24 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import com.example.isekiparcom.viewmodel.ScanResult
-import com.example.isekiparcom.viewmodel.PartData
+
+// Hapus data class PartData karena tidak digunakan lagi
+// data class PartData(...)
 
 class BearingKbcViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api" // Ganti jika perlu
+    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api"
     private val client = OkHttpClient()
-    private val tflite = TfliteInference(context) // Pastikan model shaft/metal ada
+    private val tflite = TfliteInference(context, "bearing_kbc/model_unquant.tflite", "bearing_kbc/labels.txt")
 
-    val scanResult = mutableStateOf<ScanResult?>(null)
-    val foundPart = mutableStateOf<PartData?>(null)
+    // State untuk scan QR
+    val scanResult = mutableStateOf<ScanResult?>(null) // Pastikan ScanResult didefinisikan di file lain atau impor
+    // Hapus state untuk foundPart
+    // val foundPart = mutableStateOf<PartData?>(null)
     val validationMessage = mutableStateOf<String?>(null)
-    val showCaptureButton = mutableStateOf(false) // Untuk foto pertama
+    val showCaptureButton = mutableStateOf(false) // Tombol untuk ambil foto part langsung
     val capturedPartPhotoFile = mutableStateOf<File?>(null)
     val partDetectionResult = mutableStateOf<String?>(null) // "shaft" atau "metal"
-    val showSecondCaptureButton = mutableStateOf(false) // Untuk foto kedua (OCR)
+    val showSecondCaptureButton = mutableStateOf(false) // Tombol untuk ambil foto OCR
     val capturedOcrPhotoFile = mutableStateOf<File?>(null)
     val ocrResult = mutableStateOf<String?>(null)
     val finalResult = mutableStateOf<String?>(null) // "OK" atau "NG"
@@ -49,40 +50,17 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
             if (parts.size < 3) throw Exception("Format QR salah")
             val sequenceNo = parts[0].trim()
             val tractorType = parts[2].trim()
+            // Gunakan Id_Comparison = 2 untuk Bearing KBC
             scanResult.value = ScanResult(sequenceNo, tractorType, idComparison = 2)
-            fetchPartByTractorType(tractorType)
+            // 🔥 Langsung tampilkan tombol validasi (karena tidak ada PartData lagi)
+            showCaptureButton.value = true
         } catch (e: Exception) {
             Log.e("QR", "Parse error", e)
         }
     }
 
-    private fun fetchPartByTractorType(tractorType: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val url = "$apiUrl/bearing-kbc/part-by-tractor/${tractorType}" // 🔥 Ganti endpoint
-                val request = Request.Builder().url(url).build()
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val jsonStr = response.body?.string()
-                    if (jsonStr != "null") {
-                        val json = JSONObject(jsonStr)
-                        val part = PartData(
-                            idPart = json.getInt("id_part"),
-                            codePart = json.getString("code_part"),
-                            namePart = json.getString("name_part"),
-                            idTractor = json.getInt("id_tractor"),
-                            idComparison = json.getInt("id_comparison")
-                        )
-                        withContext(Dispatchers.Main) {
-                            foundPart.value = part
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("API", "Fetch part error", e)
-            }
-        }
-    }
+    // 🔥 HAPUS FUNGSI fetchPartByTractorType
+    // private fun fetchPartByTractorType(tractorType: String) { ... }
 
     fun validateRule() {
         val result = scanResult.value ?: return
@@ -97,7 +75,7 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 val body = RequestBody.create(mediaType, json.toString())
 
                 val request = Request.Builder()
-                    .url("$apiUrl/bearing-kbc/validate") // 🔥 Ganti endpoint
+                    .url("$apiUrl/bearing-kbc/validate") // 🔥 Ganti endpoint sesuai API Laravel kamu
                     .post(body)
                     .build()
                 val response = client.newCall(request).execute()
@@ -106,6 +84,7 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 val message = respJson.getString("message")
                 withContext(Dispatchers.Main) {
                     validationMessage.value = message
+                    // 🔥 Tidak ada PartData, jadi langsung set showCaptureButton jika validasi sukses
                     if (success) showCaptureButton.value = true
                 }
             } catch (e: Exception) {
@@ -151,8 +130,6 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 val containsKbc = cleanedText.contains("KBC", ignoreCase = true)
                 if (containsKbc) {
                     finalResult.value = "OK"
-                    // Gunakan "KBC" untuk Text dan Predict Record
-                    // Simpan di variabel lokal atau state jika perlu untuk upload
                 } else {
                     finalResult.value = "NG"
                 }
@@ -169,39 +146,29 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
 
     fun uploadResult() {
         val scan = scanResult.value ?: return
-        val part = foundPart.value ?: return
+        // 🔥 HAPUS: val part = foundPart.value ?: return
         val result = finalResult.value ?: return
         val photoPart = capturedPartPhotoFile.value
         val photoOcr = capturedOcrPhotoFile.value // Bisa null jika hasilnya NG di TFLite
 
-        // Tentukan Text_Record dan Predict_Record berdasarkan hasil
-        val (textRecord, predictRecord) = if (partDetectionResult.value?.lowercase() == "shaft") {
-            val ocrText = ocrResult.value ?: ""
-            if (ocrText.contains("KBC", ignoreCase = true)) {
-                Pair("KBC", "KBC")
-            } else {
-                Pair(ocrText, ocrText) // Atau bisa gunakan ocrText jika NG
-            }
-        } else {
-            // Jika bukan shaft, tidak ada OCR, gunakan hasil TFLite atau kosong
-            Pair("", "") // Atau nilai default lain
-        }
-
+        // 🔥 SESUAIKAN DENGAN STRUKTUR TABEL RECORD YANG BARU
+        // Karena tidak ada part, kita gunakan nilai default atau null untuk field terkait part
+        // Misalnya: Id_Part = null, Code_Part tidak disertakan, dll.
+        // Atau kamu bisa menyimpan Id_Part = 0 atau -1 sebagai placeholder jika tidak digunakan.
 
         val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("Id_Comparison", part.idComparison.toString())
-            .addFormDataPart("Id_Tractor", part.idTractor.toString())
-            .addFormDataPart("Id_Part", part.idPart.toString())
+            .addFormDataPart("Id_Comparison", scan.idComparison.toString()) // Gunakan dari scan result
             .addFormDataPart("No_Tractor_Record", scan.sequenceNo)
             .addFormDataPart("Result_Record", result)
-            .addFormDataPart("Text_Record", textRecord)
-            .addFormDataPart("Predict_Record", predictRecord)
+            // 🔥 Tambahkan field Text_Record dan Predict_Record
+            .addFormDataPart("Text_Record", ocrResult.value ?: "")
+            .addFormDataPart("Predict_Record", ocrResult.value ?: "")
 
 
         // Tambahkan foto part (wajib)
         photoPart?.let {
             multipart.addFormDataPart(
-                "Photo_Ng_Path",
+                "Photo_Ng_Path", // Nama field di Laravel
                 it.name,
                 it.asRequestBody("image/jpeg".toMediaType())
             )
@@ -210,18 +177,25 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
         // Tambahkan foto OCR (opsional, hanya jika diambil)
         photoOcr?.let {
             multipart.addFormDataPart(
-                "Photo_Ng_Path_Two", // Nama field sesuai database
+                "Photo_Ng_Path_Two", // Nama field di Laravel
                 it.name,
                 it.asRequestBody("image/jpeg".toMediaType())
             )
         }
+
+        // 🔥 JIKA KAMU TIDAK MENYIMPAN Id_Tractor atau Id_Part, HAPUS BARIS INI:
+        // .addFormDataPart("Id_Tractor", part.idTractor.toString())
+        // .addFormDataPart("Id_Part", part.idPart.toString())
+
+        // 🔥 JIKA KAMU TIDAK MENYIMPAN Id_User di tahap ini, HAPUS ATAU ISI DENGAN NILAI DEFAULT:
+        // .addFormDataPart("Id_User", userId.toString())
 
         multipart.build()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val request = Request.Builder()
-                    .url("$apiUrl/bearing-kbc/save") // 🔥 Ganti endpoint
+                    .url("$apiUrl/bearing-kbc/save") // 🔥 Ganti endpoint sesuai API Laravel kamu
                     .post(multipart.build())
                     .build()
                 val response = client.newCall(request).execute()
