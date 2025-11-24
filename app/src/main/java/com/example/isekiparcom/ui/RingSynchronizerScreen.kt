@@ -69,17 +69,28 @@ fun RingSynchronizerScreen(navController: NavHostController) {
     }
 
     // Kembali ke record list setelah save
+//    LaunchedEffect(viewModel.saveSuccess.value) {
+//        if (viewModel.saveSuccess.value == true) {
+//            Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
+//
+//            // Beri sinyal refresh ke list
+//            navController.previousBackStackEntry
+//                ?.savedStateHandle
+//                ?.set("refreshRecords", true)
+//
+//            navController.popBackStack()
+//            viewModel.saveSuccess.value = null
+//        }
+//    }
+
+    // Kembali ke list bearing kbc setelah simpan
     LaunchedEffect(viewModel.saveSuccess.value) {
         if (viewModel.saveSuccess.value == true) {
             Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-
-            // Beri sinyal refresh ke list
-            navController.previousBackStackEntry
-                ?.savedStateHandle
-                ?.set("refreshRecords", true)
-
-            navController.popBackStack()
-            viewModel.saveSuccess.value = null
+            // 🔥 NAVIGASI KE LIST
+            navController.navigate("record_list_ring") {
+                popUpTo("ring_synchronizer") { inclusive = true } // Hapus stack bearing_kbc
+            }
         }
     }
 
@@ -278,9 +289,14 @@ fun RingSynchronizerScreen(navController: NavHostController) {
 
                         Button(
                             onClick = { viewModel.uploadResult() },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !viewModel.isUploading.value // 🔥 Nonaktifkan jika sedang mengupload
                         ) {
-                            Text("Simpan Hasil", color = Color.White)
+                            if (viewModel.isUploading.value) {
+                                Text("Mengunggah...") // 🔥 Tampilkan teks berbeda saat mengupload
+                            } else {
+                                Text("Simpan Hasil", color = Color.White)
+                            }
                         }
                     }
                 }

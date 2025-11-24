@@ -8,10 +8,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.isekiparcom.utils.TfliteInference
+import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -38,11 +40,14 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
     val capturedPartPhotoFile = mutableStateOf<File?>(null)
     val partDetectionResult = mutableStateOf<String?>(null) // "shaft" atau "metal"
     val showSecondCaptureButton = mutableStateOf(false) // Tombol untuk ambil foto OCR
+    val showRetakePartButton = mutableStateOf(false) // 🔥 Tombol ambil ulang foto part
     val capturedOcrPhotoFile = mutableStateOf<File?>(null)
     val ocrResult = mutableStateOf<String?>(null)
     val finalResult = mutableStateOf<String?>(null) // "OK" atau "NG"
     val showUploadButton = mutableStateOf(false)
     val saveSuccess = mutableStateOf<Boolean?>(null)
+    val showResultPopup = mutableStateOf(false)
+    val popupFinished = mutableStateOf(false)
 
     fun handleQrScanned(rawQr: String) {
         try {
@@ -107,19 +112,27 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
     }
 
     fun runTfliteForPart(bitmap: Bitmap) {
-        val predictedClass = tflite.run(bitmap) // Harus mengembalikan "shaft" atau "metal"
+        val predictedClass = tflite.run(bitmap) // Harus mengembalikan "shaft" atau "metal" atau apapun
         partDetectionResult.value = predictedClass
+
         if (predictedClass.lowercase() == "shaft") {
             showSecondCaptureButton.value = true // Munculkan tombol ambil foto OCR
-        } else { // Jika metal atau lainnya
-            finalResult.value = "NG"
-            showUploadButton.value = true // Siap upload langsung
+            showRetakePartButton.value = false // Jangan tampilkan tombol retake part
+        } else { // Jika bukan shaft (metal, dll)
+            // Jangan tampilkan tombol ambil foto OCR
+            showSecondCaptureButton.value = false
+            // Jangan tampilkan tombol simpan hasil
+            showUploadButton.value = false
+            // Jangan set finalResult ke NG sekarang
+            // finalResult.value = "NG"
+            // Tampilkan tombol ambil ulang foto part
+            showRetakePartButton.value = true
         }
     }
 
     fun runOcr(bitmap: Bitmap) {
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bitmap, 0)
+        val image = InputImage.fromBitmap(bitmap, 0)
 
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
@@ -128,47 +141,78 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 ocrResult.value = cleanedText
 
                 val containsKbc = cleanedText.contains("KBC", ignoreCase = true)
-                if (containsKbc) {
-                    finalResult.value = "OK"
-                } else {
-                    finalResult.value = "NG"
+                val finalResult = if (containsKbc) "OK" else "NG"
+                val finalPredictRecord = if (containsKbc) "KBC" else cleanedText
+
+                this.finalResult.value = finalResult
+                textRecordForUpload.value = "KBC" // Konstan
+                predictRecordForUpload.value = finalPredictRecord // Sesuaikan
+                showUploadButton.value = true
+
+                // 🔥 Tampilkan popup OK/NG selama 2 detik
+                showResultPopup.value = true
+                popupFinished.value = false // Reset status popup
+                // Gunakan coroutine untuk delay
+                viewModelScope.launch {
+                    delay(2000) // 2 detik
+                    showResultPopup.value = false // Sembunyikan popup
+                    popupFinished.value = true // Tandai bahwa popup selesai
                 }
-                showUploadButton.value = true // Siap upload setelah OCR
             }
             .addOnFailureListener { e ->
                 Log.e("OCR", "Gagal", e)
-                // Anggap sebagai NG jika OCR gagal
                 ocrResult.value = "OCR_FAILED"
                 finalResult.value = "NG"
+                textRecordForUpload.value = "KBC"
+                predictRecordForUpload.value = "OCR_FAILED"
                 showUploadButton.value = true
+
+                // 🔥 Tampilkan popup NG jika gagal
+                showResultPopup.value = true
+                popupFinished.value = false
+                viewModelScope.launch {
+                    delay(2000)
+                    showResultPopup.value = false
+                    popupFinished.value = true
+                }
             }
     }
 
+    // Tambahkan state baru untuk menyimpan hasil final
+    val textRecordForUpload = mutableStateOf<String?>(null)
+    val predictRecordForUpload = mutableStateOf<String?>(null)
+
+    val isUploading = mutableStateOf(false)
+
     fun uploadResult() {
+        // 🔥 CEK APAKAH SEDANG UPLOAD, JIKA YA, ABORT
+        if (isUploading.value) {
+            Log.d("BearingKbcVM", "Upload sedang berlangsung, mencegah duplikasi.")
+            return
+        }
+
         val scan = scanResult.value ?: return
-        // 🔥 HAPUS: val part = foundPart.value ?: return
         val result = finalResult.value ?: return
         val photoPart = capturedPartPhotoFile.value
         val photoOcr = capturedOcrPhotoFile.value // Bisa null jika hasilnya NG di TFLite
 
-        // 🔥 SESUAIKAN DENGAN STRUKTUR TABEL RECORD YANG BARU
-        // Karena tidak ada part, kita gunakan nilai default atau null untuk field terkait part
-        // Misalnya: Id_Part = null, Code_Part tidak disertakan, dll.
-        // Atau kamu bisa menyimpan Id_Part = 0 atau -1 sebagai placeholder jika tidak digunakan.
+        val textRecord = textRecordForUpload.value ?: ""
+        val predictRecord = predictRecordForUpload.value ?: ""
+
+        // 🔥 SET UPLOAD STATUS KE TRUE
+        isUploading.value = true
 
         val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("Id_Comparison", scan.idComparison.toString()) // Gunakan dari scan result
+            .addFormDataPart("Id_Comparison", scan.idComparison.toString())
             .addFormDataPart("No_Tractor_Record", scan.sequenceNo)
             .addFormDataPart("Result_Record", result)
-            // 🔥 Tambahkan field Text_Record dan Predict_Record
-            .addFormDataPart("Text_Record", ocrResult.value ?: "")
-            .addFormDataPart("Predict_Record", ocrResult.value ?: "")
-
+            .addFormDataPart("Text_Record", textRecord)
+            .addFormDataPart("Predict_Record", predictRecord)
 
         // Tambahkan foto part (wajib)
         photoPart?.let {
             multipart.addFormDataPart(
-                "Photo_Ng_Path", // Nama field di Laravel
+                "Photo_Ng_Path",
                 it.name,
                 it.asRequestBody("image/jpeg".toMediaType())
             )
@@ -177,37 +221,34 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
         // Tambahkan foto OCR (opsional, hanya jika diambil)
         photoOcr?.let {
             multipart.addFormDataPart(
-                "Photo_Ng_Path_Two", // Nama field di Laravel
+                "Photo_Ng_Path_Two", // Nama field sesuai database
                 it.name,
                 it.asRequestBody("image/jpeg".toMediaType())
             )
         }
 
-        // 🔥 JIKA KAMU TIDAK MENYIMPAN Id_Tractor atau Id_Part, HAPUS BARIS INI:
-        // .addFormDataPart("Id_Tractor", part.idTractor.toString())
-        // .addFormDataPart("Id_Part", part.idPart.toString())
-
-        // 🔥 JIKA KAMU TIDAK MENYIMPAN Id_User di tahap ini, HAPUS ATAU ISI DENGAN NILAI DEFAULT:
-        // .addFormDataPart("Id_User", userId.toString())
-
-        multipart.build()
+        val requestBody = multipart.build()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val request = Request.Builder()
-                    .url("$apiUrl/bearing-kbc/save") // 🔥 Ganti endpoint sesuai API Laravel kamu
-                    .post(multipart.build())
+                    .url("$apiUrl/bearing-kbc/save") // 🔥 Ganti endpoint
+                    .post(requestBody)
                     .build()
                 val response = client.newCall(request).execute()
                 val json = JSONObject(response.body?.string())
                 if (json.getBoolean("success")) {
                     withContext(Dispatchers.Main) {
                         saveSuccess.value = true
+                        // 🔥 RESET STATUS UPLOAD
+                        isUploading.value = false
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Upload gagal: ${json.optString("message", "Unknown error")}", Toast.LENGTH_LONG).show()
                         saveSuccess.value = false
+                        // 🔥 RESET STATUS UPLOAD JUGA JIKA GAGAL
+                        isUploading.value = false
                     }
                 }
             } catch (e: Exception) {
@@ -215,6 +256,8 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Gagal mengunggah: ${e.message}", Toast.LENGTH_LONG).show()
                     saveSuccess.value = false
+                    // 🔥 RESET STATUS UPLOAD JUGA JIKA ERROR
+                    isUploading.value = false
                 }
             }
         }
@@ -230,5 +273,13 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
     override fun onCleared() {
         tflite.close()
         super.onCleared()
+    }
+
+    fun resetForRetakePart() {
+        partDetectionResult.value = null
+        capturedPartPhotoFile.value = null
+        showSecondCaptureButton.value = false
+        showRetakePartButton.value = false
+        // Tidak perlu reset ocrResult, finalResult, dll.
     }
 }

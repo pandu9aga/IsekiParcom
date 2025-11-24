@@ -163,7 +163,15 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
         showUploadButton.value = true
     }
 
+    // Di dalam class RingSynchronizerViewModel
+    val isUploading = mutableStateOf(false) // 🔥 Tambahkan ini
+
     fun uploadResult() {
+        // Cegah upload jika sedang berlangsung
+        if (isUploading.value) return // 🔥 Tambahkan pengecekan ini
+
+        isUploading.value = true // 🔥 Set ke true saat mulai upload
+
         val scan = scanResult.value ?: return
         val part = foundPart.value ?: return
         val result = resultStatus.value ?: return
@@ -175,34 +183,38 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
             .addFormDataPart("Id_Part", part.idPart.toString())
             .addFormDataPart("No_Tractor_Record", scan.sequenceNo)
             .addFormDataPart("Result_Record", result)
-            .addFormDataPart(
-                "Photo_Ng_Path",
-                photoFile.name,
-                photoFile.asRequestBody("image/jpeg".toMediaType())
-            )
-            .build()
+
+        photoFile.let {
+            val fileBody = RequestBody.create("image/jpeg".toMediaType(), it)
+            multipart.addFormDataPart("Photo_Ng_Path", it.name, fileBody)
+        }
+
+        val requestBody = multipart.build()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val request = Request.Builder()
-                    .url("$apiUrl/ring-synchronizer/save")
-                    .post(multipart)
+                    .url("$apiUrl/ring-synchronizer/save") // Ganti dengan endpoint API kamu
+                    .post(requestBody)
                     .build()
                 val response = client.newCall(request).execute()
                 val json = JSONObject(response.body?.string())
                 if (json.getBoolean("success")) {
                     withContext(Dispatchers.Main) {
-                        saveSuccess.value = true // 🔥 Set state untuk kembali
+                        saveSuccess.value = true
+                        isUploading.value = false // 🔥 Reset status upload saat berhasil
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Gagal menyimpan: ${json.optString("message", "Error tidak diketahui")}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Upload gagal: ${json.optString("message", "Unknown error")}", Toast.LENGTH_LONG).show()
+                        isUploading.value = false // 🔥 Reset status upload saat gagal
                     }
                 }
             } catch (e: Exception) {
                 Log.e("Upload", "Gagal", e)
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Upload gagal: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Gagal mengunggah: ${e.message}", Toast.LENGTH_LONG).show()
+                    isUploading.value = false // 🔥 Reset status upload saat error
                 }
             }
         }

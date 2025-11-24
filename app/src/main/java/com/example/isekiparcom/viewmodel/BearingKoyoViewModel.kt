@@ -1,5 +1,3 @@
-// app/src/main/java/com/example/isekiparcom/viewmodel/BearingKoyoViewModel.kt
-
 package com.example.isekiparcom.viewmodel
 
 import android.content.Context
@@ -10,10 +8,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.isekiparcom.utils.TfliteInference
+import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -22,26 +22,32 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
-import com.example.isekiparcom.viewmodel.ScanResult
-import com.example.isekiparcom.viewmodel.PartData
+
+// Hapus data class PartData karena tidak digunakan lagi
+// data class PartData(...)
 
 class BearingKoyoViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api" // Ganti jika perlu
+    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api"
     private val client = OkHttpClient()
-    private val tflite = TfliteInference(context, "bearing_kbc/model_unquant.tflite", "bearing_kbc/labels.txt")
+    private val tflite = TfliteInference(context, "bearing_koyo/model_unquant.tflite", "bearing_koyo/labels.txt")
 
-    val scanResult = mutableStateOf<ScanResult?>(null)
-    val foundPart = mutableStateOf<PartData?>(null)
+    // State untuk scan QR
+    val scanResult = mutableStateOf<ScanResult?>(null) // Pastikan ScanResult didefinisikan di file lain atau impor
+    // Hapus state untuk foundPart
+    // val foundPart = mutableStateOf<PartData?>(null)
     val validationMessage = mutableStateOf<String?>(null)
-    val showCaptureButton = mutableStateOf(false) // Untuk foto pertama
+    val showCaptureButton = mutableStateOf(false) // Tombol untuk ambil foto part langsung
     val capturedPartPhotoFile = mutableStateOf<File?>(null)
     val partDetectionResult = mutableStateOf<String?>(null) // "shaft" atau "metal"
-    val showSecondCaptureButton = mutableStateOf(false) // Untuk foto kedua (OCR)
+    val showSecondCaptureButton = mutableStateOf(false) // Tombol untuk ambil foto OCR
+    val showRetakePartButton = mutableStateOf(false) // 🔥 Tombol ambil ulang foto part
     val capturedOcrPhotoFile = mutableStateOf<File?>(null)
     val ocrResult = mutableStateOf<String?>(null)
     val finalResult = mutableStateOf<String?>(null) // "OK" atau "NG"
     val showUploadButton = mutableStateOf(false)
     val saveSuccess = mutableStateOf<Boolean?>(null)
+    val showResultPopup = mutableStateOf(false)
+    val popupFinished = mutableStateOf(false)
 
     fun handleQrScanned(rawQr: String) {
         try {
@@ -49,40 +55,17 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
             if (parts.size < 3) throw Exception("Format QR salah")
             val sequenceNo = parts[0].trim()
             val tractorType = parts[2].trim()
+            // Gunakan Id_Comparison = 3 untuk Bearing KOYO
             scanResult.value = ScanResult(sequenceNo, tractorType, idComparison = 3)
-            fetchPartByTractorType(tractorType)
+            // 🔥 Langsung tampilkan tombol validasi (karena tidak ada PartData lagi)
+            showCaptureButton.value = true
         } catch (e: Exception) {
             Log.e("QR", "Parse error", e)
         }
     }
 
-    private fun fetchPartByTractorType(tractorType: String) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val url = "$apiUrl/bearing-koyo/part-by-tractor/${tractorType}" // 🔥 Ganti endpoint
-                val request = Request.Builder().url(url).build()
-                val response = client.newCall(request).execute()
-                if (response.isSuccessful) {
-                    val jsonStr = response.body?.string()
-                    if (jsonStr != "null") {
-                        val json = JSONObject(jsonStr)
-                        val part = PartData(
-                            idPart = json.getInt("id_part"),
-                            codePart = json.getString("code_part"),
-                            namePart = json.getString("name_part"),
-                            idTractor = json.getInt("id_tractor"),
-                            idComparison = json.getInt("id_comparison")
-                        )
-                        withContext(Dispatchers.Main) {
-                            foundPart.value = part
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("API", "Fetch part error", e)
-            }
-        }
-    }
+    // 🔥 HAPUS FUNGSI fetchPartByTractorType
+    // private fun fetchPartByTractorType(tractorType: String) { ... }
 
     fun validateRule() {
         val result = scanResult.value ?: return
@@ -97,7 +80,7 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
                 val body = RequestBody.create(mediaType, json.toString())
 
                 val request = Request.Builder()
-                    .url("$apiUrl/bearing-koyo/validate") // 🔥 Ganti endpoint
+                    .url("$apiUrl/bearing-koyo/validate") // 🔥 Ganti endpoint sesuai API Laravel kamu
                     .post(body)
                     .build()
                 val response = client.newCall(request).execute()
@@ -106,6 +89,7 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
                 val message = respJson.getString("message")
                 withContext(Dispatchers.Main) {
                     validationMessage.value = message
+                    // 🔥 Tidak ada PartData, jadi langsung set showCaptureButton jika validasi sukses
                     if (success) showCaptureButton.value = true
                 }
             } catch (e: Exception) {
@@ -128,19 +112,27 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
     }
 
     fun runTfliteForPart(bitmap: Bitmap) {
-        val predictedClass = tflite.run(bitmap) // Harus mengembalikan "shaft" atau "metal"
+        val predictedClass = tflite.run(bitmap) // Harus mengembalikan "shaft" atau "metal" atau apapun
         partDetectionResult.value = predictedClass
+
         if (predictedClass.lowercase() == "metal") {
             showSecondCaptureButton.value = true // Munculkan tombol ambil foto OCR
-        } else { // Jika shaft atau lainnya
-            finalResult.value = "NG"
-            showUploadButton.value = true // Siap upload langsung
+            showRetakePartButton.value = false // Jangan tampilkan tombol retake part
+        } else { // Jika bukan metal (shaft, dll)
+            // Jangan tampilkan tombol ambil foto OCR
+            showSecondCaptureButton.value = false
+            // Jangan tampilkan tombol simpan hasil
+            showUploadButton.value = false
+            // Jangan set finalResult ke NG sekarang
+            // finalResult.value = "NG"
+            // Tampilkan tombol ambil ulang foto part
+            showRetakePartButton.value = true
         }
     }
 
     fun runOcr(bitmap: Bitmap) {
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-        val image = com.google.mlkit.vision.common.InputImage.fromBitmap(bitmap, 0)
+        val image = InputImage.fromBitmap(bitmap, 0)
 
         recognizer.process(image)
             .addOnSuccessListener { visionText ->
@@ -149,54 +141,73 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
                 ocrResult.value = cleanedText
 
                 val containsKoyo = cleanedText.contains("KOYO", ignoreCase = true)
-                if (containsKoyo) {
-                    finalResult.value = "OK"
-                    // Gunakan "KOYO" untuk Text dan Predict Record
-                    // Simpan di variabel lokal atau state jika perlu untuk upload
-                } else {
-                    finalResult.value = "NG"
+                val finalResult = if (containsKoyo) "OK" else "NG"
+                val finalPredictRecord = if (containsKoyo) "KOYO" else cleanedText
+
+                this.finalResult.value = finalResult
+                textRecordForUpload.value = "KOYO" // Konstan
+                predictRecordForUpload.value = finalPredictRecord // Sesuaikan
+                showUploadButton.value = true
+
+                // 🔥 Tampilkan popup OK/NG selama 2 detik
+                showResultPopup.value = true
+                popupFinished.value = false // Reset status popup
+                // Gunakan coroutine untuk delay
+                viewModelScope.launch {
+                    delay(2000) // 2 detik
+                    showResultPopup.value = false // Sembunyikan popup
+                    popupFinished.value = true // Tandai bahwa popup selesai
                 }
-                showUploadButton.value = true // Siap upload setelah OCR
             }
             .addOnFailureListener { e ->
                 Log.e("OCR", "Gagal", e)
-                // Anggap sebagai NG jika OCR gagal
                 ocrResult.value = "OCR_FAILED"
                 finalResult.value = "NG"
+                textRecordForUpload.value = "KOYO"
+                predictRecordForUpload.value = "OCR_FAILED"
                 showUploadButton.value = true
+
+                // 🔥 Tampilkan popup NG jika gagal
+                showResultPopup.value = true
+                popupFinished.value = false
+                viewModelScope.launch {
+                    delay(2000)
+                    showResultPopup.value = false
+                    popupFinished.value = true
+                }
             }
     }
 
+    // Tambahkan state baru untuk menyimpan hasil final
+    val textRecordForUpload = mutableStateOf<String?>(null)
+    val predictRecordForUpload = mutableStateOf<String?>(null)
+
+    val isUploading = mutableStateOf(false)
+
     fun uploadResult() {
+        // 🔥 CEK APAKAH SEDANG UPLOAD, JIKA YA, ABORT
+        if (isUploading.value) {
+            Log.d("BearingKoyoVM", "Upload sedang berlangsung, mencegah duplikasi.")
+            return
+        }
+
         val scan = scanResult.value ?: return
-        val part = foundPart.value ?: return
         val result = finalResult.value ?: return
         val photoPart = capturedPartPhotoFile.value
         val photoOcr = capturedOcrPhotoFile.value // Bisa null jika hasilnya NG di TFLite
 
-        // Tentukan Text_Record dan Predict_Record berdasarkan hasil
-        val (textRecord, predictRecord) = if (partDetectionResult.value?.lowercase() == "shaft") {
-            val ocrText = ocrResult.value ?: ""
-            if (ocrText.contains("KOYO", ignoreCase = true)) {
-                Pair("KOYO", "KOYO")
-            } else {
-                Pair(ocrText, ocrText) // Atau bisa gunakan ocrText jika NG
-            }
-        } else {
-            // Jika bukan shaft, tidak ada OCR, gunakan hasil TFLite atau kosong
-            Pair("", "") // Atau nilai default lain
-        }
+        val textRecord = textRecordForUpload.value ?: ""
+        val predictRecord = predictRecordForUpload.value ?: ""
 
+        // 🔥 SET UPLOAD STATUS KE TRUE
+        isUploading.value = true
 
         val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
-            .addFormDataPart("Id_Comparison", part.idComparison.toString())
-            .addFormDataPart("Id_Tractor", part.idTractor.toString())
-            .addFormDataPart("Id_Part", part.idPart.toString())
+            .addFormDataPart("Id_Comparison", scan.idComparison.toString())
             .addFormDataPart("No_Tractor_Record", scan.sequenceNo)
             .addFormDataPart("Result_Record", result)
             .addFormDataPart("Text_Record", textRecord)
             .addFormDataPart("Predict_Record", predictRecord)
-
 
         // Tambahkan foto part (wajib)
         photoPart?.let {
@@ -216,24 +227,28 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
             )
         }
 
-        multipart.build()
+        val requestBody = multipart.build()
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val request = Request.Builder()
                     .url("$apiUrl/bearing-koyo/save") // 🔥 Ganti endpoint
-                    .post(multipart.build())
+                    .post(requestBody)
                     .build()
                 val response = client.newCall(request).execute()
                 val json = JSONObject(response.body?.string())
                 if (json.getBoolean("success")) {
                     withContext(Dispatchers.Main) {
                         saveSuccess.value = true
+                        // 🔥 RESET STATUS UPLOAD
+                        isUploading.value = false
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Upload gagal: ${json.optString("message", "Unknown error")}", Toast.LENGTH_LONG).show()
                         saveSuccess.value = false
+                        // 🔥 RESET STATUS UPLOAD JUGA JIKA GAGAL
+                        isUploading.value = false
                     }
                 }
             } catch (e: Exception) {
@@ -241,6 +256,8 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Gagal mengunggah: ${e.message}", Toast.LENGTH_LONG).show()
                     saveSuccess.value = false
+                    // 🔥 RESET STATUS UPLOAD JUGA JIKA ERROR
+                    isUploading.value = false
                 }
             }
         }
@@ -256,5 +273,13 @@ class BearingKoyoViewModel(private val context: Context) : ViewModel() {
     override fun onCleared() {
         tflite.close()
         super.onCleared()
+    }
+
+    fun resetForRetakePart() {
+        partDetectionResult.value = null
+        capturedPartPhotoFile.value = null
+        showSecondCaptureButton.value = false
+        showRetakePartButton.value = false
+        // Tidak perlu reset ocrResult, finalResult, dll.
     }
 }

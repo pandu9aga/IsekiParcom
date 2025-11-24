@@ -8,6 +8,11 @@ import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -41,6 +46,8 @@ fun BearingKbcScreen(navController: NavHostController) {
 
     var showCameraPart by remember { mutableStateOf(false) }
     var showCameraOcr by remember { mutableStateOf(false) }
+    var showResultPopup by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     // ❌ HAPUS LAUNCHED EFFECT INI KARENA TIDAK ADA foundPart LAGI
@@ -59,11 +66,14 @@ fun BearingKbcScreen(navController: NavHostController) {
         }
     }
 
-    // Kembali ke dashboard setelah simpan
+    // Kembali ke list bearing kbc setelah simpan
     LaunchedEffect(viewModel.saveSuccess.value) {
         if (viewModel.saveSuccess.value == true) {
             Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            navController.popBackStack()
+            // 🔥 NAVIGASI KE LIST
+            navController.navigate("record_list_bearing_kbc") {
+                popUpTo("bearing_kbc") { inclusive = true } // Hapus stack bearing_kbc
+            }
         }
     }
 
@@ -80,7 +90,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                     navigationIcon = {
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
-                                imageVector = androidx.compose.material.icons.Icons.Default.ArrowBack,
+                                imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Kembali"
                             )
                         }
@@ -193,7 +203,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                     if (result.lowercase() == "shaft") {
                         Text("Lanjutkan ke OCR...")
                     } else {
-                        Text("Part bukan Shaft. Proses selesai.")
+                        Text("Part bukan Shaft. Silakan ambil ulang.")
                     }
                 }
 
@@ -205,48 +215,113 @@ fun BearingKbcScreen(navController: NavHostController) {
                     }
                 }
 
-                // Hasil OCR
-                viewModel.ocrResult.value?.let { ocr ->
+                // Tombol ambil ulang foto part (muncul jika part != shaft)
+                if (viewModel.showRetakePartButton.value) {
                     Spacer(Modifier.height(16.dp))
-                    Card {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("OCR Result (cleaned): $ocr")
-                            if (ocr.contains("KBC", ignoreCase = true)) {
-                                Text("Status: OK (Mengandung teks KBC)", color = Color.Green)
-                            } else {
-                                Text("Status: NG (Tidak mengandung teks KBC)", color = Color.Red)
-                            }
-                        }
+                    Button(onClick = {
+                        viewModel.resetForRetakePart()
+                        showCameraPart = true // Buka kamera lagi untuk ambil foto part
+                    }) {
+                        Text("Ambil Ulang Foto Part")
                     }
                 }
 
-                // Hasil akhir
-                viewModel.finalResult.value?.let { final ->
-                    Spacer(Modifier.height(24.dp))
-                    val color = if (final == "OK") Color(0xFF43A047) else Color(0xFFE53935)
+                // ===============================
+                //     POPUP OK/NG (Tampil sementara)
+                // ===============================
+
+                if (viewModel.showResultPopup.value && viewModel.ocrResult.value != null) {
+                    val result = viewModel.ocrResult.value!! // Ambil hasil OCR untuk menentukan OK/NG
+                    val containsKbc = result.contains("KBC", ignoreCase = true)
+                    val finalResult = if (containsKbc) "OK" else "NG"
+                    val popupColor = if (finalResult == "OK") Color(0xFF4CAF50) else Color(0xFFE53935)
+
+                    AlertDialog(
+                        onDismissRequest = { /* Tidak bisa di-dismiss otomatis */ },
+                        confirmButton = { /* Biarkan kosong */ },
+                        containerColor = popupColor,
+                        text = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                                    .padding(16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    finalResult,
+                                    color = Color.White,
+                                    fontSize = 69.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
+                        }
+                    )
+                }
+
+                // ===============================
+                //     BADGE BESAR PERMANEN (Tampil setelah popup hilang)
+                // ===============================
+
+                // Tampilkan badge besar dan tombol simpan hanya jika popup tidak aktif
+                if (!viewModel.showResultPopup.value && viewModel.popupFinished.value) {
+                    val result = viewModel.ocrResult.value!!
+                    val containsKbc = result.contains("KBC", ignoreCase = true)
+                    val finalResult = if (containsKbc) "OK" else "NG"
+                    val color = if (finalResult == "OK") Color(0xFF43A047) else Color(0xFFE53935)
+
+                    val infiniteTransition = rememberInfiniteTransition(label = "Blink Transition")
+                    val blinkColor by infiniteTransition.animateColor(
+                        initialValue = color,
+                        targetValue = if (finalResult == "OK") Color(0xFF8BD58E) else Color(0xFFFA7E75),
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 600),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "Blink Color"
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Card {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("OCR Result (cleaned): $result")
+                            if (result.contains("KBC", ignoreCase = true)) {
+                                Text("Status: OK (Mengandung teks KBC)", color = Color(0xFF43A047))
+                            } else {
+                                Text("Status: NG (Tidak mengandung teks KBC)", color = Color(0xFFE53935))
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(20.dp))
+
                     Box(
-                        Modifier
+                        modifier = Modifier
                             .fillMaxWidth()
-                            .height(160.dp)
-                            .background(color, MaterialTheme.shapes.medium)
-                            .padding(24.dp),
+                            .height(140.dp)
+                            .background(blinkColor, MaterialTheme.shapes.medium)
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            final,
+                            finalResult,
                             color = Color.White,
-                            style = MaterialTheme.typography.headlineLarge,
+                            fontSize = 69.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                     }
 
                     Spacer(Modifier.height(24.dp))
 
-                    if (viewModel.showUploadButton.value) {
-                        Button(
-                            onClick = { viewModel.uploadResult() },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                    Button(
+                        onClick = { viewModel.uploadResult() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !viewModel.isUploading.value
+                    ) {
+                        if (viewModel.isUploading.value) {
+                            Text("Mengunggah...")
+                        } else {
                             Text("Simpan Hasil", color = Color.White)
                         }
                     }
