@@ -44,7 +44,6 @@ fun RingSynchronizerScreen(navController: NavHostController) {
     var showCamera by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Popup OK/NG 1 detik
     var showResultPopup by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -61,35 +60,20 @@ fun RingSynchronizerScreen(navController: NavHostController) {
         }
     }
 
-    // Auto-validasi setelah part ditemukan
+    // Auto-validasi setelah part ditemukan (baru!)
     LaunchedEffect(viewModel.foundPart.value) {
         if (viewModel.foundPart.value != null && viewModel.scanResult.value != null) {
+            // 🔥 Panggil validateRule lagi setiap kali foundPart berubah
             viewModel.validateRule {}
         }
     }
 
-    // Kembali ke record list setelah save
-//    LaunchedEffect(viewModel.saveSuccess.value) {
-//        if (viewModel.saveSuccess.value == true) {
-//            Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-//
-//            // Beri sinyal refresh ke list
-//            navController.previousBackStackEntry
-//                ?.savedStateHandle
-//                ?.set("refreshRecords", true)
-//
-//            navController.popBackStack()
-//            viewModel.saveSuccess.value = null
-//        }
-//    }
-
-    // Kembali ke list bearing kbc setelah simpan
+    // Kembali ke list ring synchronizer setelah save
     LaunchedEffect(viewModel.saveSuccess.value) {
         if (viewModel.saveSuccess.value == true) {
             Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            // 🔥 NAVIGASI KE LIST
             navController.navigate("record_list_ring") {
-                popUpTo("ring_synchronizer") { inclusive = true } // Hapus stack bearing_kbc
+                popUpTo("ring_synchronizer") { inclusive = true }
             }
         }
     }
@@ -99,7 +83,6 @@ fun RingSynchronizerScreen(navController: NavHostController) {
     // ==========================
 
     Box(modifier = Modifier.fillMaxSize()) {
-
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
@@ -123,7 +106,6 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                 )
             }
         ) { padding ->
-
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -132,13 +114,12 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.Start
             ) {
-
-                // QR Scanner Launcher
                 val launcher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
                 ) { result ->
                     if (result.resultCode == Activity.RESULT_OK) {
                         val qrText = result.data?.getStringExtra("qr_result") ?: return@rememberLauncherForActivityResult
+                        // 🔥 Panggil handleQrScanned dari ViewModel
                         viewModel.handleQrScanned(qrText)
                     }
                 }
@@ -206,6 +187,7 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                     Spacer(Modifier.height(20.dp))
                 }
 
+                // 🔥 Tombol hanya muncul jika validasi sukses
                 if (viewModel.showCaptureButton.value) {
                     Button(
                         onClick = { showCamera = true },
@@ -257,9 +239,7 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                         val infiniteTransition = rememberInfiniteTransition(label = "")
                         val blinkColor by infiniteTransition.animateColor(
                             initialValue = if (status == "OK") Color(0xFF43A047) else Color(0xFFE53935),
-                            targetValue = if (status == "OK") Color(0xFF8BD58E) else Color(
-                                0xFFFA7E75
-                            ),
+                            targetValue = if (status == "OK") Color(0xFF8BD58E) else Color(0xFFFA7E75),
                             animationSpec = infiniteRepeatable(
                                 animation = tween(durationMillis = 600),
                                 repeatMode = RepeatMode.Reverse
@@ -267,7 +247,7 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                             label = "blinkColor"
                         )
 
-                        Spacer(Modifier.height(20.dp)) // 🔥 Jarak dari tombol Ambil Foto
+                        Spacer(Modifier.height(20.dp))
 
                         Box(
                             Modifier
@@ -290,10 +270,10 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                         Button(
                             onClick = { viewModel.uploadResult() },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !viewModel.isUploading.value // 🔥 Nonaktifkan jika sedang mengupload
+                            enabled = !viewModel.isUploading.value
                         ) {
                             if (viewModel.isUploading.value) {
-                                Text("Mengunggah...") // 🔥 Tampilkan teks berbeda saat mengupload
+                                Text("Mengunggah...")
                             } else {
                                 Text("Simpan Hasil", color = Color.White)
                             }
@@ -316,13 +296,10 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                 CameraCaptureScreen(
                     expectedCodePart = viewModel.foundPart.value?.codePart ?: "UNKNOWN",
                     onPredictionResult = { result, file ->
-
                         viewModel.setResult(result, file)
                         showCamera = false
 
-                        // 🔥 Tampilkan popup OK/NG selama 1 detik
                         showResultPopup = true
-
                         scope.launch {
                             delay(2000)
                             showResultPopup = false

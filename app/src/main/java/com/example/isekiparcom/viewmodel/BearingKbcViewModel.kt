@@ -49,18 +49,42 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
     val showResultPopup = mutableStateOf(false)
     val popupFinished = mutableStateOf(false)
 
+    // Tambahkan fungsi resetStates
+    private fun resetStates() {
+        validationMessage.value = null
+        showCaptureButton.value = false
+        partDetectionResult.value = null
+        showSecondCaptureButton.value = false
+        showRetakePartButton.value = false
+        ocrResult.value = null
+        finalResult.value = null
+        showUploadButton.value = false
+        showResultPopup.value = false
+        popupFinished.value = false
+        // Jangan reset scanResult dan foundPart di sini, kita reset di handleQrScanned
+    }
+
     fun handleQrScanned(rawQr: String) {
         try {
             val parts = rawQr.split(";")
             if (parts.size < 3) throw Exception("Format QR salah")
             val sequenceNo = parts[0].trim()
             val tractorType = parts[2].trim()
-            // Gunakan Id_Comparison = 2 untuk Bearing KBC
+
+            // 🔥 Reset semua state sebelum memproses QR baru
+            resetStates()
+
+            // Set scan result baru
             scanResult.value = ScanResult(sequenceNo, tractorType, idComparison = 2)
-            // 🔥 Langsung tampilkan tombol validasi (karena tidak ada PartData lagi)
+            // Tampilkan tombol validasi (karena tidak ada PartData lagi)
             showCaptureButton.value = true
+
+            // 🔥 Panggil validateRule langsung setelah scan
+            validateRule()
+
         } catch (e: Exception) {
             Log.e("QR", "Parse error", e)
+            validationMessage.value = "Format QR salah: ${e.message}"
         }
     }
 
@@ -89,11 +113,15 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 val message = respJson.getString("message")
                 withContext(Dispatchers.Main) {
                     validationMessage.value = message
-                    // 🔥 Tidak ada PartData, jadi langsung set showCaptureButton jika validasi sukses
-                    if (success) showCaptureButton.value = true
+                    // 🔥 Hanya tampilkan tombol ambil foto jika validasi sukses
+                    showCaptureButton.value = success
                 }
             } catch (e: Exception) {
                 Log.e("API", "Validate error", e)
+                withContext(Dispatchers.Main) {
+                    validationMessage.value = "Gagal memvalidasi: ${e.message}"
+                    showCaptureButton.value = false // Jangan tampilkan tombol jika gagal
+                }
             }
         }
     }
@@ -152,6 +180,7 @@ class BearingKbcViewModel(private val context: Context) : ViewModel() {
                 // 🔥 Tampilkan popup OK/NG selama 2 detik
                 showResultPopup.value = true
                 popupFinished.value = false // Reset status popup
+
                 // Gunakan coroutine untuk delay
                 viewModelScope.launch {
                     delay(2000) // 2 detik

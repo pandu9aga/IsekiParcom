@@ -48,17 +48,39 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     val saveSuccess = mutableStateOf<Boolean?>(null)
 
     fun handleQrScanned(rawQr: String) {
-        Log.d("QRDEBUG", "QR Scanned: $rawQr")
         try {
             val parts = rawQr.split(";")
             if (parts.size < 3) throw Exception("Format QR salah")
             val sequenceNo = parts[0].trim()
             val tractorType = parts[2].trim()
-            scanResult.value = ScanResult(sequenceNo, tractorType)
+            val newScanResult = ScanResult(sequenceNo, tractorType)
+
+            // 🔥 Reset semua state terkait scan sebelumnya
+            resetScanStates()
+
+            // Set scan result baru
+            scanResult.value = newScanResult
+            Log.d("VM_DEBUG", "New QR scanned: ${newScanResult.sequenceNo}, fetching part...")
+
+            // Ambil part baru
             fetchPartByTractorType(tractorType)
         } catch (e: Exception) {
             Log.e("QR", "Parse error", e)
+            validationMessage.value = "Format QR salah: ${e.message}"
         }
+    }
+
+    // 🔥 Fungsi untuk mereset state terkait scan sebelumnya
+    private fun resetScanStates() {
+        foundPart.value = null
+        validationMessage.value = null
+        showCaptureButton.value = false
+        resultStatus.value = null
+        capturedPhotoFile.value = null
+        showUploadButton.value = false
+        saveSuccess.value = null
+        // Jangan reset isUploading di sini, hanya set ke false jika perlu
+        isUploading.value = false
     }
 
     fun fetchPartByTractorType(tractorType: String) {

@@ -171,26 +171,29 @@ fun BearingKoyoScreen(navController: NavHostController) {
                     ) {
                         Text(msg, color = Color.White, fontWeight = FontWeight.Medium)
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 // 🔥 TOMBOL AMBIL FOTO PART SEKARANG LANGSUNG MUNCUL SETELAH VALIDASI
                 if (viewModel.showCaptureButton.value && viewModel.partDetectionResult.value == null) {
-                    Button(onClick = { showCameraPart = true }) {
+                    Button(
+                        onClick = { showCameraPart = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Ambil Foto Part")
                     }
                 }
 
                 // Hasil deteksi part
                 viewModel.partDetectionResult.value?.let { result ->
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(7.dp))
                     val color = if (result.lowercase() == "metal") Color(0xFF4CAF50) else Color(0xFFE53935)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp)
+                            .height(60.dp)
                             .background(color, MaterialTheme.shapes.medium)
-                            .padding(16.dp),
+                            .padding(8.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -231,7 +234,7 @@ fun BearingKoyoScreen(navController: NavHostController) {
                 // ===============================
 
                 if (viewModel.showResultPopup.value && viewModel.ocrResult.value != null) {
-                    val result = viewModel.ocrResult.value!! // Ambil hasil OCR untuk menentukan OK/NG
+                    val result = viewModel.ocrResult.value!!
                     val containsKoyo = result.contains("KOYO", ignoreCase = true)
                     val finalResult = if (containsKoyo) "OK" else "NG"
                     val popupColor = if (finalResult == "OK") Color(0xFF4CAF50) else Color(0xFFE53935)
@@ -249,7 +252,7 @@ fun BearingKoyoScreen(navController: NavHostController) {
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    finalResult,
+                                    finalResult, // Gunakan hasil final OK/NG
                                     color = Color.White,
                                     fontSize = 69.sp,
                                     fontWeight = FontWeight.ExtraBold
