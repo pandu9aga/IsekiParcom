@@ -96,4 +96,6 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
 
     implementation(libs.okhttp)
+
+    implementation("com.google.android.exoplayer:exoplayer:2.19.1")
 }

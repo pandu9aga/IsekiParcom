@@ -1,2 +1,2 @@
-0 metal
-1 shaft
+0 shaft
+1 metal
