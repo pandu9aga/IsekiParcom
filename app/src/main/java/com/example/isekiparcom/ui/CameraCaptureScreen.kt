@@ -2,7 +2,6 @@ package com.example.isekiparcom.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -23,15 +22,16 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.example.isekiparcom.utils.TfliteInference
 import kotlinx.coroutines.*
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CameraCaptureScreen(
-    onPredictionResult: (String, File) -> Unit,
-    expectedCodePart: String,
+    // 🔥 HAPUS PARAMETER expectedCodePart dan onPredictionResult
+    // onPredictionResult: (String, File) -> Unit,
+    // expectedCodePart: String,
+    onPhotoCaptured: (File) -> Unit, // 🔥 GANTI: Kirim file saja ke ViewModel
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -149,31 +149,15 @@ fun CameraCaptureScreen(
                             object : ImageCapture.OnImageSavedCallback {
                                 override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                                     Log.d("CameraCapture", "✅ Foto tersimpan di: ${file.absolutePath}")
-                                    val bmp = BitmapFactory.decodeFile(file.absolutePath)
-
-                                    coroutineScope.launch {
-                                        isLoading = true
-                                        try {
-                                            val tflite = TfliteInference(context, "ring_synchronizer/model_unquant.tflite", "ring_synchronizer/labels.txt")
-                                            val result = processImageWithTflite(bmp, tflite, expectedCodePart)
-                                            val compressed = compressBitmap(context, bmp, 500)
-
-                                            withContext(Dispatchers.Main) {
-                                                onPredictionResult(result, compressed)
-                                                onBack()
-                                            }
-                                        } catch (e: Exception) {
-                                            Log.e("CameraCapture", "❌ Error memproses foto", e)
-                                            withContext(Dispatchers.Main) { onBack() }
-                                        } finally {
-                                            isLoading = false
-                                        }
-                                    }
+                                    // 🔥 KEMBALIKAN FILE SAJA KE VIEWMODEL
+                                    onPhotoCaptured(file)
+                                    // 🔥 TUTUP KAMERA
+                                    onBack()
                                 }
 
                                 override fun onError(exception: ImageCaptureException) {
                                     Log.e("CameraX", "❌ Gagal ambil foto", exception)
-                                    isLoading = false
+                                    // 🔥 TETAP TUTUP KAMERA MESKI ERROR
                                     onBack()
                                 }
                             }
@@ -202,26 +186,4 @@ fun CameraCaptureScreen(
             }
         }
     }
-}
-
-/* Utilitas */
-private suspend fun processImageWithTflite(
-    bitmap: Bitmap,
-    tflite: TfliteInference,
-    expected: String
-): String = withContext(Dispatchers.IO) {
-    val predicted = tflite.run(bitmap)
-    Log.d("CameraCapture", "Expected: $expected, Predicted: $predicted")
-    if (predicted.trim() == expected.trim()) "OK" else "NG"
-}
-
-private fun compressBitmap(context: android.content.Context, bitmap: Bitmap, maxSizeKB: Int): File {
-    val file = File(context.cacheDir, "compressed_${System.currentTimeMillis()}.jpg")
-    var quality = 90
-    do {
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, quality, it) }
-        quality -= 10
-    } while (file.length() > maxSizeKB * 1024L && quality > 10)
-    Log.d("CameraCapture", "Compressed file size: ${file.length() / 1024} KB")
-    return file
 }

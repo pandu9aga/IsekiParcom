@@ -47,6 +47,31 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     val showUploadButton = mutableStateOf(false)
     val saveSuccess = mutableStateOf<Boolean?>(null)
 
+    fun processImage(bitmap: Bitmap) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val predictedCode = tflite.run(bitmap)
+                val expectedCode = foundPart.value?.codePart ?: ""
+                val result = if (predictedCode.trim() == expectedCode.trim()) "OK" else "NG"
+
+                val compressedFile = compressBitmap(bitmap, 500)
+
+                // Update state di Main thread
+                withContext(Dispatchers.Main) {
+                    resultStatus.value = result
+                    capturedPhotoFile.value = compressedFile
+                    showUploadButton.value = true
+                }
+            } catch (e: Exception) {
+                Log.e("VM", "Error processing image", e)
+                withContext(Dispatchers.Main) {
+                    resultStatus.value = "ERROR"
+                    showUploadButton.value = false
+                }
+            }
+        }
+    }
+
     fun handleQrScanned(rawQr: String) {
         try {
             val parts = rawQr.split(";")

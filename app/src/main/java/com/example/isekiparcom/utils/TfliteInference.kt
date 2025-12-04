@@ -120,7 +120,8 @@ class TfliteInference(
     private fun extractCode(label: String): String {
         val parts = label.trim().split("\\s+".toRegex())
         if (parts.size >= 2) {
-            return parts[1]
+            // Ambil semua bagian mulai dari indeks 1 (part ke-2) hingga akhir
+            return parts.subList(1, parts.size).joinToString(" ")
         }
         return label.trim()
     }

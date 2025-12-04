@@ -2,6 +2,7 @@ package com.example.isekiparcom.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -294,18 +295,13 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                     .background(Color.Black.copy(alpha = 0.95f))
             ) {
                 CameraCaptureScreen(
-                    expectedCodePart = viewModel.foundPart.value?.codePart ?: "UNKNOWN",
-                    onPredictionResult = { result, file ->
-                        viewModel.setResult(result, file)
-                        showCamera = false
-
-                        showResultPopup = true
-                        scope.launch {
-                            delay(2000)
-                            showResultPopup = false
-                        }
+                    // expectedCodePart = viewModel.foundPart.value?.codePart ?: "UNKNOWN", // ❌ HAPUS
+                    onPhotoCaptured = { file -> // ✅ Gunakan onPhotoCaptured
+                        // 🔥 Proses foto di ViewModel
+                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                        viewModel.processImage(bitmap) // Panggil fungsi di ViewModel
                     },
-                    onBack = { showCamera = false }
+                    onBack = { showCamera = false } // Tetap gunakan onBack untuk menutup kamera
                 )
             }
         }

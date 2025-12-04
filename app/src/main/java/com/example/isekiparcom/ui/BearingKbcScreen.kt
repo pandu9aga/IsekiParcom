@@ -171,7 +171,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                     ) {
                         Text(msg, color = Color.White, fontWeight = FontWeight.Medium)
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(20.dp))
                 }
 
                 // 🔥 TOMBOL AMBIL FOTO PART SEKARANG LANGSUNG MUNCUL SETELAH VALIDASI
@@ -186,14 +186,14 @@ fun BearingKbcScreen(navController: NavHostController) {
 
                 // Hasil deteksi part
                 viewModel.partDetectionResult.value?.let { result ->
-                    Spacer(Modifier.height(7.dp))
-                    val color = if (result.lowercase() == "shaft") Color(0xFF4CAF50) else Color(0xFFE53935)
+                    Spacer(Modifier.height(16.dp))
+                    val color = if (result.lowercase() == "shaft bearing") Color(0xFF4CAF50) else Color(0xFFE53935)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(60.dp)
+                            .height(100.dp)
                             .background(color, MaterialTheme.shapes.medium)
-                            .padding(8.dp),
+                            .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -203,34 +203,40 @@ fun BearingKbcScreen(navController: NavHostController) {
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    if (result.lowercase() == "shaft") {
+                    if (result.lowercase() == "shaft bearing") {
                         Text("Lanjutkan ke OCR...")
                     } else {
-                        Text("Part bukan Shaft. Silakan ambil ulang.")
+                        Text("Part bukan Shaft Bearing. Silakan ambil ulang.")
                     }
                 }
 
-                // Tombol ambil foto OCR (muncul jika part = shaft)
+                // Tombol ambil foto OCR (muncul jika part = shaft bearing)
                 if (viewModel.showSecondCaptureButton.value) {
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = { showCameraOcr = true }) {
+                    Button(
+                        onClick = { showCameraOcr = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Ambil Foto OCR")
                     }
                 }
 
-                // Tombol ambil ulang foto part (muncul jika part != shaft)
+                // Tombol ambil ulang foto part (muncul jika part != shaft bearing)
                 if (viewModel.showRetakePartButton.value) {
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = {
-                        viewModel.resetForRetakePart()
-                        showCameraPart = true // Buka kamera lagi untuk ambil foto part
-                    }) {
+                    Button(
+                        onClick = {
+                            viewModel.resetForRetakePart()
+                            showCameraPart = true // Buka kamera lagi untuk ambil foto part
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
                         Text("Ambil Ulang Foto Part")
                     }
                 }
 
                 // ===============================
-                //     POPUP OK/NG (Tampil sementara)
+                //     POPUP OK/NG (Tampil sementara setelah OCR selesai)
                 // ===============================
 
                 if (viewModel.showResultPopup.value && viewModel.ocrResult.value != null) {
@@ -263,39 +269,24 @@ fun BearingKbcScreen(navController: NavHostController) {
                 }
 
                 // ===============================
-                //     BADGE BESAR PERMANEN (Tampil setelah popup hilang)
+                //     BADGE BESAR PERMANEN (Tampil setelah popup OCR selesai)
                 // ===============================
 
-                // Tampilkan badge besar dan tombol simpan hanya jika popup tidak aktif
-                if (!viewModel.showResultPopup.value && viewModel.popupFinished.value) {
-                    val result = viewModel.ocrResult.value!!
-                    val containsKbc = result.contains("KBC", ignoreCase = true)
-                    val finalResult = if (containsKbc) "OK" else "NG"
-                    val color = if (finalResult == "OK") Color(0xFF43A047) else Color(0xFFE53935)
+                // Tampilkan badge besar dan tombol simpan hanya jika popup OCR selesai dan hasil ada
+                if (!viewModel.showResultPopup.value && viewModel.popupFinished.value && viewModel.finalResult.value != null) {
+                    val final = viewModel.finalResult.value!!
+                    val color = if (final == "OK") Color(0xFF43A047) else Color(0xFFE53935)
 
                     val infiniteTransition = rememberInfiniteTransition(label = "Blink Transition")
                     val blinkColor by infiniteTransition.animateColor(
                         initialValue = color,
-                        targetValue = if (finalResult == "OK") Color(0xFF8BD58E) else Color(0xFFFA7E75),
+                        targetValue = if (final == "OK") Color(0xFF8BD58E) else Color(0xFFFA7E75),
                         animationSpec = infiniteRepeatable(
                             animation = tween(durationMillis = 600),
                             repeatMode = RepeatMode.Reverse
                         ),
                         label = "Blink Color"
                     )
-
-                    Spacer(Modifier.height(16.dp))
-
-                    Card {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text("OCR Result (cleaned): $result")
-                            if (result.contains("KBC", ignoreCase = true)) {
-                                Text("Status: OK (Mengandung teks KBC)", color = Color(0xFF43A047))
-                            } else {
-                                Text("Status: NG (Tidak mengandung teks KBC)", color = Color(0xFFE53935))
-                            }
-                        }
-                    }
 
                     Spacer(Modifier.height(20.dp))
 
@@ -308,7 +299,7 @@ fun BearingKbcScreen(navController: NavHostController) {
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            finalResult,
+                            final,
                             color = Color.White,
                             fontSize = 69.sp,
                             fontWeight = FontWeight.ExtraBold
@@ -340,12 +331,12 @@ fun BearingKbcScreen(navController: NavHostController) {
                     .background(Color.Black.copy(alpha = 0.95f))
             ) {
                 CameraCaptureScreen(
-                    expectedCodePart = "IGNORED_FOR_BEARING", // Tidak digunakan
-                    onPredictionResult = { _, file ->
+                    // expectedCodePart = "IGNORED_FOR_BEARING_PART", // ❌ HAPUS
+                    onPhotoCaptured = { file -> // ✅ Gunakan onPhotoCaptured
                         viewModel.capturedPartPhotoFile.value = file
-                        // Proses TFLite
+                        // 🔥 Proses TFLite untuk part di ViewModel
                         val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        viewModel.runTfliteForPart(bitmap)
+                        viewModel.processPartImage(bitmap) // Panggil fungsi di ViewModel
                         showCameraPart = false
                     },
                     onBack = { showCameraPart = false }
@@ -361,12 +352,12 @@ fun BearingKbcScreen(navController: NavHostController) {
                     .background(Color.Black.copy(alpha = 0.95f))
             ) {
                 CameraCaptureScreen(
-                    expectedCodePart = "IGNORED_FOR_OCR", // Tidak digunakan
-                    onPredictionResult = { _, file ->
+                    // expectedCodePart = "IGNORED_FOR_OCR", // ❌ HAPUS
+                    onPhotoCaptured = { file -> // ✅ Gunakan onPhotoCaptured
                         viewModel.capturedOcrPhotoFile.value = file
-                        // Proses OCR
+                        // 🔥 Proses OCR di ViewModel
                         val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        viewModel.runOcr(bitmap)
+                        viewModel.processOcrImage(bitmap) // Panggil fungsi di ViewModel
                         showCameraOcr = false
                     },
                     onBack = { showCameraOcr = false }
