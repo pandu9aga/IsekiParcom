@@ -199,15 +199,16 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                 }
 
                 // =====================================================
-                //               POPUP RESULT
-                // =====================================================
+//                   POPUP RESULT
+// =====================================================
 
-                if (showResultPopup && viewModel.resultStatus.value != null) {
+// 🔥 Tambahkan ini sebelum badge besar
+                if (viewModel.showResultPopup.value && viewModel.resultStatus.value != null) {
                     val status = viewModel.resultStatus.value!!
                     val popupColor = if (status == "OK") Color(0xFF4CAF50) else Color(0xFFE53935)
 
                     AlertDialog(
-                        onDismissRequest = {},
+                        onDismissRequest = {}, // Jangan bisa di-dismiss secara manual
                         confirmButton = {},
                         containerColor = popupColor,
                         title = {
@@ -229,55 +230,55 @@ fun RingSynchronizerScreen(navController: NavHostController) {
                     )
                 }
 
-                // =====================================================
-                //                   BADGE BESAR OK / NG
-                // =====================================================
+// =====================================================
+//                   BADGE BESAR OK / NG
+// =====================================================
 
-                if (!showResultPopup) {
-                    viewModel.resultStatus.value?.let { status ->
-                        val color = if (status == "OK") Color(0xFF43A047) else Color(0xFFE53935)
+// 🔥 Ganti kondisi ini: dari `if (viewModel.resultStatus.value != null)` menjadi:
+                if (viewModel.popupFinished.value && viewModel.resultStatus.value != null) { // Hanya muncul setelah popup selesai
+                    val status = viewModel.resultStatus.value!!
+                    val color = if (status == "OK") Color(0xFF43A047) else Color(0xFFE53935)
 
-                        val infiniteTransition = rememberInfiniteTransition(label = "")
-                        val blinkColor by infiniteTransition.animateColor(
-                            initialValue = if (status == "OK") Color(0xFF43A047) else Color(0xFFE53935),
-                            targetValue = if (status == "OK") Color(0xFF8BD58E) else Color(0xFFFA7E75),
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(durationMillis = 600),
-                                repeatMode = RepeatMode.Reverse
-                            ),
-                            label = "blinkColor"
+                    val infiniteTransition = rememberInfiniteTransition(label = "")
+                    val blinkColor by infiniteTransition.animateColor(
+                        initialValue = if (status == "OK") Color(0xFF43A047) else Color(0xFFE53935),
+                        targetValue = if (status == "OK") Color(0xFF8BD58E) else Color(0xFFFA7E75),
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(durationMillis = 600),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "blinkColor"
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(140.dp)
+                            .background(blinkColor, MaterialTheme.shapes.medium)
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            status,
+                            color = Color.White,
+                            fontSize = 69.sp,
+                            fontWeight = FontWeight.ExtraBold
                         )
+                    }
 
-                        Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(24.dp))
 
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(140.dp)
-                                .background(blinkColor, MaterialTheme.shapes.medium)
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                status,
-                                color = Color.White,
-                                fontSize = 69.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-
-                        Spacer(Modifier.height(24.dp))
-
-                        Button(
-                            onClick = { viewModel.uploadResult() },
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !viewModel.isUploading.value
-                        ) {
-                            if (viewModel.isUploading.value) {
-                                Text("Mengunggah...")
-                            } else {
-                                Text("Simpan Hasil", color = Color.White)
-                            }
+                    Button(
+                        onClick = { viewModel.uploadResult() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !viewModel.isUploading.value
+                    ) {
+                        if (viewModel.isUploading.value) {
+                            Text("Mengunggah...")
+                        } else {
+                            Text("Simpan Hasil", color = Color.White)
                         }
                     }
                 }

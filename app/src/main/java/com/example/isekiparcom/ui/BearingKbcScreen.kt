@@ -236,6 +236,40 @@ fun BearingKbcScreen(navController: NavHostController) {
                 }
 
                 // ===============================
+                //     HASIL OCR (Tampil setelah OCR selesai)
+                // ===============================
+
+                // 🔥 Tambahkan bagian ini di sini
+                viewModel.predictRecordForUpload.value?.let { finalPredictRecord ->
+                    Spacer(Modifier.height(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer // Gunakan warna secondary container
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "Hasil OCR:",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = finalPredictRecord, // Tampilkan hasil OCR
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                // ===============================
                 //     POPUP OK/NG (Tampil sementara setelah OCR selesai)
                 // ===============================
 

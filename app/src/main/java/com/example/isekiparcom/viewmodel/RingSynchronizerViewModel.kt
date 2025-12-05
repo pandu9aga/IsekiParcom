@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.isekiparcom.utils.TfliteInference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.*
@@ -22,6 +23,7 @@ import java.io.FileOutputStream
 data class ScanResult(
     val sequenceNo: String,
     val tractorType: String,
+    val productionDate: String,
     val idComparison: Int = 1
 )
 
@@ -47,6 +49,11 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     val showUploadButton = mutableStateOf(false)
     val saveSuccess = mutableStateOf<Boolean?>(null)
 
+    val showResultPopup = mutableStateOf(false)
+    val popupFinished = mutableStateOf(false)
+
+    val isUploading = mutableStateOf(false) // 🔥 Tambahkan ini
+
     fun processImage(bitmap: Bitmap) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -61,6 +68,17 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
                     resultStatus.value = result
                     capturedPhotoFile.value = compressedFile
                     showUploadButton.value = true
+
+                    // 🔥 Tampilkan popup OK/NG selama 2 detik
+                    showResultPopup.value = true
+                    popupFinished.value = false
+
+                    // Gunakan viewModelScope untuk delay
+                    viewModelScope.launch {
+                        delay(2000)
+                        showResultPopup.value = false
+                        popupFinished.value = true
+                    }
                 }
             } catch (e: Exception) {
                 Log.e("VM", "Error processing image", e)
@@ -75,17 +93,21 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     fun handleQrScanned(rawQr: String) {
         try {
             val parts = rawQr.split(";")
-            if (parts.size < 3) throw Exception("Format QR salah")
+            // 🔥 QR sekarang harus punya 3 bagian: sequence, production_date, tractor_type
+            if (parts.size < 3) throw Exception("Format QR salah, harus memiliki sequence, production date, dan tractor type")
             val sequenceNo = parts[0].trim()
+            // 🔥 Ambil production date dari bagian kedua
+            val productionDate = parts[1].trim()
             val tractorType = parts[2].trim()
-            val newScanResult = ScanResult(sequenceNo, tractorType)
+            // 🔥 Gunakan production date di constructor
+            val newScanResult = ScanResult(sequenceNo, tractorType, productionDate)
 
             // 🔥 Reset semua state terkait scan sebelumnya
             resetScanStates()
 
             // Set scan result baru
             scanResult.value = newScanResult
-            Log.d("VM_DEBUG", "New QR scanned: ${newScanResult.sequenceNo}, fetching part...")
+            Log.d("VM_DEBUG", "New QR scanned: ${newScanResult.sequenceNo}, Prod Date: ${newScanResult.productionDate}, fetching part...")
 
             // Ambil part baru
             fetchPartByTractorType(tractorType)
@@ -104,7 +126,6 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
         capturedPhotoFile.value = null
         showUploadButton.value = false
         saveSuccess.value = null
-        // Jangan reset isUploading di sini, hanya set ke false jika perlu
         isUploading.value = false
     }
 
@@ -155,13 +176,15 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
                 val json = JSONObject().apply {
                     put("sequence_no", result.sequenceNo)
                     put("id_comparison", result.idComparison)
+                    // 🔥 Tambahkan production date ke request body
+                    put("production_date", result.productionDate)
                 }
 
                 val mediaType = "application/json; charset=utf-8".toMediaType()
                 val body = RequestBody.create(mediaType, json.toString())
 
                 val request = Request.Builder()
-                    .url("$apiUrl/ring-synchronizer/validate")
+                    .url("$apiUrl/ring-synchronizer/validate") // Gunakan endpoint yang sesuai
                     .post(body)
                     .build()
                 val response = client.newCall(request).execute()
@@ -202,27 +225,14 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
         return file
     }
 
-    fun runTensorFlowLite(bitmap: Bitmap) {
-        val predictedCode = tflite.run(bitmap)
-        val actualCode = foundPart.value?.codePart ?: ""
-        val isMatch = predictedCode == actualCode
-        resultStatus.value = if (isMatch) "OK" else "NG"
-        showUploadButton.value = true
-    }
-
-    // Di dalam class RingSynchronizerViewModel
-    val isUploading = mutableStateOf(false) // 🔥 Tambahkan ini
-
     fun uploadResult() {
-        // Cegah upload jika sedang berlangsung
-        if (isUploading.value) return // 🔥 Tambahkan pengecekan ini
+        if (isUploading.value) return
+        isUploading.value = true
 
-        isUploading.value = true // 🔥 Set ke true saat mulai upload
-
-        val scan = scanResult.value ?: return
-        val part = foundPart.value ?: return
-        val result = resultStatus.value ?: return
-        val photoFile = capturedPhotoFile.value ?: return
+        val scan = scanResult.value ?: run { isUploading.value = false; return }
+        val part = foundPart.value ?: run { isUploading.value = false; return }
+        val result = resultStatus.value ?: run { isUploading.value = false; return }
+        val photoFile = capturedPhotoFile.value ?: run { isUploading.value = false; return }
 
         val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
             .addFormDataPart("Id_Comparison", part.idComparison.toString())
@@ -230,6 +240,8 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
             .addFormDataPart("Id_Part", part.idPart.toString())
             .addFormDataPart("No_Tractor_Record", scan.sequenceNo)
             .addFormDataPart("Result_Record", result)
+            // 🔥 Tambahkan production date ke multipart
+            .addFormDataPart("Production_Date_Record", scan.productionDate)
 
         photoFile.let {
             val fileBody = RequestBody.create("image/jpeg".toMediaType(), it)
@@ -241,7 +253,7 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val request = Request.Builder()
-                    .url("$apiUrl/ring-synchronizer/save") // Ganti dengan endpoint API kamu
+                    .url("$apiUrl/ring-synchronizer/save") // Gunakan endpoint yang sesuai
                     .post(requestBody)
                     .build()
                 val response = client.newCall(request).execute()
@@ -249,19 +261,19 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
                 if (json.getBoolean("success")) {
                     withContext(Dispatchers.Main) {
                         saveSuccess.value = true
-                        isUploading.value = false // 🔥 Reset status upload saat berhasil
+                        isUploading.value = false
                     }
                 } else {
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Upload gagal: ${json.optString("message", "Unknown error")}", Toast.LENGTH_LONG).show()
-                        isUploading.value = false // 🔥 Reset status upload saat gagal
+                        isUploading.value = false
                     }
                 }
             } catch (e: Exception) {
                 Log.e("Upload", "Gagal", e)
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Gagal mengunggah: ${e.message}", Toast.LENGTH_LONG).show()
-                    isUploading.value = false // 🔥 Reset status upload saat error
+                    isUploading.value = false
                 }
             }
         }
@@ -273,14 +285,13 @@ class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
     }
 
     fun setResult(result: String, photoFile: File) {
-        Log.d("VM_DEBUG", "setResult called with result: $result, file: ${photoFile.name}") // 🔍 Log pemanggilan fungsi
+        Log.d("VM_DEBUG", "setResult called with result: $result, file: ${photoFile.name}")
         resultStatus.value = result
         capturedPhotoFile.value = photoFile
         showUploadButton.value = true
-        Log.d("VM_DEBUG", "showUploadButton set to: ${showUploadButton.value}") // 🔍 Log perubahan state
+        Log.d("VM_DEBUG", "showUploadButton set to: ${showUploadButton.value}")
     }
 
-    // 🔥 Fungsi untuk mereset setelah validasi gagal (opsional)
     fun resetAfterValidationError() {
         showCaptureButton.value = false
         resultStatus.value = null

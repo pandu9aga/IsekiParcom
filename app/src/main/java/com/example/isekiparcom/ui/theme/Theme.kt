@@ -12,13 +12,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
+//    primary = PinkPrimary,
+//    onPrimary = PinkOnPrimary,
+//    primaryContainer = PinkContainer,
+//    secondaryContainer = PinkSurface,
+//    secondary = PinkSecondary,
+//    background = Color(0xFF121212),
+//    surface = Color(0xFF1E1E1E),
+//    error = PinkError,
     primary = PinkPrimary,
     onPrimary = PinkOnPrimary,
     primaryContainer = PinkContainer,
     secondaryContainer = PinkSurface,
     secondary = PinkSecondary,
-    background = Color(0xFF121212),
-    surface = Color(0xFF1E1E1E),
+    background = PinkBackground,
+    surface = PinkSurface,
     error = PinkError,
 )
 
