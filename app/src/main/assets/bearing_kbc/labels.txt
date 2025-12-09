@@ -1,4 +1,4 @@
-0 shaft only
-1 shaft bearing
-2 metal only
-3 metal bearing
+0 metal bearing
+1 metal only
+2 shaft bearing
+3 shaft only
