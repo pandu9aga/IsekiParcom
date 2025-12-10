@@ -25,6 +25,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.PointerInputScope
+import kotlin.math.abs
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.*
@@ -53,6 +59,8 @@ fun CameraCaptureScreen(
     var isFlashlightOn by remember { mutableStateOf(false) }
     var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
     var isLoading by remember { mutableStateOf(false) }
+    var zoomScale by remember { mutableStateOf(1f) }
+    var startZoom by remember { mutableStateOf(1f) }
 
     // 🔹 Minta izin kamera
     LaunchedEffect(Unit) {
@@ -90,6 +98,11 @@ fun CameraCaptureScreen(
                 camera?.cameraControl?.enableTorch(false)
                 isFlashlightOn = false
                 Log.d("CameraX", "Flashlight dimatikan saat kamera dibuka.")
+            }
+
+            val zoomState = camera?.cameraInfo?.zoomState?.value
+            if (zoomState != null) {
+                zoomScale = zoomState.linearZoom   // ⬅️ INI LETAKNYA
             }
         } catch (e: Exception) {
             Log.e("CameraX", "❌ Gagal bind kamera", e)
@@ -131,6 +144,12 @@ fun CameraCaptureScreen(
         } ?: run {
             Log.w("CameraX", "Kamera belum siap untuk autofocus.")
         }
+    }
+
+    // 🔥 Fungsi untuk mengatur zoom
+    fun setZoom(linear: Float) {
+        camera?.cameraControl?.setLinearZoom(linear)
+        zoomScale = linear
     }
 
     if (!hasCameraPermission) {
@@ -182,11 +201,17 @@ fun CameraCaptureScreen(
                 factory = { previewView },
                 modifier = Modifier
                     .fillMaxSize()
-                    // 🔥 Tambahkan tap gesture detector
+                    // 🔥 Gabungkan tap dan cubit gesture
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onTap = { offset ->
-                                autoFocus(offset.x, offset.y) // Panggil fungsi autofocus
+                                autoFocus(offset.x, offset.y)
+                            }
+                        )
+                        detectTransformGestures(
+                            onGesture = { _, pan, zoom, _ ->
+                                val newZoomLevel = (zoomScale * zoom).coerceIn(0.1f, 10f) // Batasi zoom 0.1x - 10x
+                                setZoom(newZoomLevel)
                             }
                         )
                     }
@@ -209,6 +234,34 @@ fun CameraCaptureScreen(
                             CircularProgressIndicator(color = Color.White)
                             Text("Memproses foto...", color = Color.White)
                         }
+                    }
+                }
+
+                val cameraInfo = camera?.cameraInfo
+                val zoomState = cameraInfo?.zoomState?.value
+
+                if (zoomState != null) {
+
+                    val minZoom = 0f
+                    val maxZoom = 1f
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Zoom: %.2fx".format(zoomState.zoomRatio), color = Color.White)
+
+                        Slider(
+                            value = zoomScale,
+                            onValueChange = { newZoom ->
+                                setZoom(newZoom)
+                            },
+                            valueRange = minZoom..maxZoom,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
