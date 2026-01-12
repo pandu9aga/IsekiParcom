@@ -9,6 +9,7 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -27,7 +28,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.PointerInputScope
 import kotlin.math.abs
@@ -102,7 +105,7 @@ fun CameraCaptureScreen(
 
             val zoomState = camera?.cameraInfo?.zoomState?.value
             if (zoomState != null) {
-                zoomScale = zoomState.linearZoom   // ⬅️ INI LETAKNYA
+                zoomScale = zoomState.linearZoom
             }
         } catch (e: Exception) {
             Log.e("CameraX", "❌ Gagal bind kamera", e)
@@ -117,7 +120,7 @@ fun CameraCaptureScreen(
             return
         }
 
-        if (!cameraInfo.hasFlashUnit()) { // Cek apakah flash tersedia dari cameraInfo
+        if (!cameraInfo.hasFlashUnit()) {
             Log.w("CameraX", "Flashlight tidak tersedia di kamera ini.")
             return
         }
@@ -220,7 +223,7 @@ fun CameraCaptureScreen(
             // 🔹 Overlay (lapisan di atas preview)
             Box(
                 modifier = Modifier
-                    .matchParentSize(),
+                    .matchParentSize(), // Gunakan matchParentSize agar bisa menempatkan item secara absolut
                 contentAlignment = Alignment.BottomCenter
             ) {
                 if (isLoading) {
@@ -237,63 +240,114 @@ fun CameraCaptureScreen(
                     }
                 }
 
+                // 🔥 Slider Zoom Vertikal - SOLUSI FINAL
                 val cameraInfo = camera?.cameraInfo
                 val zoomState = cameraInfo?.zoomState?.value
+                // 🔥 Di bagian state declarations (di atas LaunchedEffect)
+                var zoomScale by remember { mutableStateOf(1f) }
 
+                // 🔥 Ganti LaunchedEffect dengan observer yang lebih reaktif
                 if (zoomState != null) {
+                    // 🔥 Observe perubahan zoom dari kamera secara real-time
+                    LaunchedEffect(zoomState) {
+                        snapshotFlow { zoomState.linearZoom }
+                            .collect { newLinearZoom ->
+                                zoomScale = newLinearZoom
+                                Log.d("ZoomObserver", "ZoomScale updated to: $newLinearZoom")
+                            }
+                    }
 
-                    val minZoom = 0f
-                    val maxZoom = 1f
-
-                    Row(
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .fillMaxHeight()
+                            .width(100.dp)
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 24.dp, top = 100.dp, bottom = 20.dp)
                     ) {
-                        Text("Zoom: %.2fx".format(zoomState.zoomRatio), color = Color.White)
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Surface(
+                                color = Color.Black.copy(alpha = 0.7f),
+                                shape = MaterialTheme.shapes.medium
+                            ) {
+                                Text(
+                                    text = "%.1fx".format(zoomState.zoomRatio),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                                )
+                            }
 
-                        Slider(
-                            value = zoomScale,
-                            onValueChange = { newZoom ->
-                                setZoom(newZoom)
-                            },
-                            valueRange = minZoom..maxZoom,
-                            modifier = Modifier.weight(1f)
-                        )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .wrapContentWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Slider(
+                                    value = zoomScale, // 🔥 Ini sekarang akan ter-update
+                                    onValueChange = { newLinearZoom ->
+                                        zoomScale = newLinearZoom // 🔥 Update state langsung
+                                        camera?.cameraControl?.setLinearZoom(newLinearZoom)
+                                        Log.d("Zoom", "Slider value: $newLinearZoom")
+                                    },
+                                    valueRange = 0f..1f,
+                                    modifier = Modifier
+                                        .graphicsLayer {
+                                            rotationZ = 270f
+                                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                                        }
+                                        .width(400.dp)
+                                        .height(56.dp),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = Color.White,
+                                        activeTrackColor = Color.White,
+                                        inactiveTrackColor = Color.White.copy(alpha = 0.3f)
+                                    )
+                                )
+                            }
+                        }
                     }
                 }
 
-                // Tombol ambil foto
-                Button(
-                    onClick = {
-                        val file = File(context.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
-                        val options = ImageCapture.OutputFileOptions.Builder(file).build()
-
-                        imageCapture.takePicture(
-                            options,
-                            ContextCompat.getMainExecutor(context),
-                            object : ImageCapture.OnImageSavedCallback {
-                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                    Log.d("CameraCapture", "✅ Foto tersimpan di: ${file.absolutePath}")
-                                    onPhotoCaptured(file)
-                                    onBack()
-                                }
-
-                                override fun onError(exception: ImageCaptureException) {
-                                    Log.e("CameraX", "❌ Gagal ambil foto", exception)
-                                    onBack()
-                                }
-                            }
-                        )
-                    },
+                // Tombol ambil foto - tetap di bawah
+                Box(
                     modifier = Modifier
-                        .padding(24.dp)
-                        .height(60.dp)
+                        .align(Alignment.BottomCenter) // Tetap di bawah
                         .fillMaxWidth()
+                        .padding(24.dp)
                 ) {
-                    Text("AMBIL FOTO", color = Color.White)
+                    Button(
+                        onClick = {
+                            val file = File(context.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
+                            val options = ImageCapture.OutputFileOptions.Builder(file).build()
+
+                            imageCapture.takePicture(
+                                options,
+                                ContextCompat.getMainExecutor(context),
+                                object : ImageCapture.OnImageSavedCallback {
+                                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                        Log.d("CameraCapture", "✅ Foto tersimpan di: ${file.absolutePath}")
+                                        onPhotoCaptured(file)
+                                        onBack()
+                                    }
+
+                                    override fun onError(exception: ImageCaptureException) {
+                                        Log.e("CameraX", "❌ Gagal ambil foto", exception)
+                                        onBack()
+                                    }
+                                }
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                    ) {
+                        Text("AMBIL FOTO", color = Color.White)
+                    }
                 }
             }
         }

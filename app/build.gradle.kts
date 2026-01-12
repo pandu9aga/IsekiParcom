@@ -53,6 +53,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose.android)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.camera.video)
+    implementation(libs.androidx.foundation.android)
+    implementation(libs.androidx.foundation.android)
 
     // ❌ HAPUS BARIS INI:
     // implementation(libs.litert.support.api)

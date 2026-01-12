@@ -296,6 +296,71 @@ fun DashboardScreen(navController: NavHostController) {
                             }
                         }
                     }
+
+                    // 🔹 Kartu untuk Bearing Shaft (baru)
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.6f),
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = Color.Transparent
+                        ),
+                        elevation = CardDefaults.cardElevation(0.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Bearing Shaft",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                // 🔸 Tombol List Bearing Shaft
+                                Button(
+                                    onClick = { navController.navigate("record_list_bearing_kbc") },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp)
+                                ) {
+                                    Text("List", color = Color.White)
+                                }
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                // 🔸 Tombol Scan Bearing Shaft
+                                Button(
+                                    onClick = { navController.navigate("bearing_shaft") },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp)
+                                ) {
+                                    Text("Scan", color = Color.White)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

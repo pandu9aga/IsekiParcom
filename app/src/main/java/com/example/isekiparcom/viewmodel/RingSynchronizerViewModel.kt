@@ -36,7 +36,7 @@ data class PartData(
 )
 
 class RingSynchronizerViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api"
+    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/testing"
     private val client = OkHttpClient()
     private val tflite = TfliteInference(context, "ring_synchronizer/model_unquant.tflite", "ring_synchronizer/labels.txt")
 
