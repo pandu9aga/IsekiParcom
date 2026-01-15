@@ -38,7 +38,7 @@ class YoloV8Inference(
     private val iouThreshold = 0.4f
     private var isFirstRun = true
     private var debugFrameCount = 0
-    private val maxDebugFrames = 3
+    private val maxDebugFrames = 24
 
     companion object {
         private const val TAG = "YoloV8Inference"
