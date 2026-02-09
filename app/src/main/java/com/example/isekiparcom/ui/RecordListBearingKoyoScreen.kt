@@ -137,7 +137,7 @@ fun RecordListBearingKoyoScreen(navController: NavHostController) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Bearing KOYO", color = MaterialTheme.colorScheme.onPrimary) },
+                title = { Text("Bearing Metal", color = MaterialTheme.colorScheme.onPrimary) },
                 navigationIcon = { // Tambahkan tombol back
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -180,7 +180,7 @@ fun RecordListBearingKoyoScreen(navController: NavHostController) {
                 ) {
                     // 🔹 Tombol Scan di atas tabel
                     Button(
-                        onClick = { navController.navigate("bearing_koyo") },
+                        onClick = { navController.navigate("bearing_metal") },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = Color.White

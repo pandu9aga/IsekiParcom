@@ -11,7 +11,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -25,7 +24,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
@@ -33,18 +31,17 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.core.content.ContextCompat
-import com.example.isekiparcom.viewmodel.BearingShaftViewModel
+import com.example.isekiparcom.viewmodel.YoloCameraViewModel
 import kotlinx.coroutines.delay
 import java.io.File
-import java.io.FileOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CameraCaptureScreenYolo(
-    viewModel: BearingShaftViewModel,
+fun <T> CameraCaptureScreenYolo(
+    viewModel: T,
     onPhotoCaptured: (File) -> Unit,
     onBack: () -> Unit
-) {
+) where T : YoloCameraViewModel {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val activity = context as androidx.activity.ComponentActivity
@@ -147,15 +144,6 @@ fun CameraCaptureScreenYolo(
         }
     }
 
-    fun autoFocus(tapX: Float, tapY: Float) {
-        camera?.cameraControl?.let { control ->
-            val factory = previewView.meteringPointFactory
-            val point = factory.createPoint(tapX, tapY)
-            val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF).build()
-            control.startFocusAndMetering(action)
-        }
-    }
-
     fun mapRectToPreview(
         rect: RectF,
         srcWidth: Int,
@@ -240,12 +228,8 @@ fun CameraCaptureScreenYolo(
             if (detections.isNotEmpty()) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     detections.forEachIndexed { index, detection ->
-                        // Draw bounding box dengan warna berbeda per deteksi
-                        val boxColor = when (index % 3) {
-                            0 -> Color.Red
-                            1 -> Color.Red
-                            else -> Color.Red
-                        }
+                        // Draw bounding box dengan warna merah
+                        val boxColor = Color.Red
 
                         val mapped = mapRectToPreview(
                             detection.box,
@@ -388,8 +372,6 @@ fun CameraCaptureScreenYolo(
 
                         viewModel.processFinalBearingResult(count)
 
-                        // 🔥 TIDAK ADA RESET DI SINI, KARENA KITA INGIN POPUP DLL TETAP ADA SETELAH AMBIL FOTO
-
                         onBack() // Tutup kamera
                     },
                     modifier = Modifier
@@ -430,7 +412,7 @@ fun CameraCaptureScreenYolo(
     }
 }
 
-// Helper function untuk convert ImageProxy ke Bitmap (FIXED)
+// Helper function untuk convert ImageProxy ke Bitmap
 private fun imageProxyToBitmap(image: ImageProxy): Bitmap? {
     return try {
         // Untuk format RGBA_8888

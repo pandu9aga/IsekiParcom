@@ -10,6 +10,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.isekiparcom.ui.BearingKbcScreen
 import com.example.isekiparcom.ui.BearingKoyoScreen
 import com.example.isekiparcom.ui.BearingShaftScreen
+import com.example.isekiparcom.ui.BearingMetalScreen
 import com.example.isekiparcom.ui.DashboardScreen
 import com.example.isekiparcom.ui.RecordListBearingKbcScreen
 import com.example.isekiparcom.ui.RecordListBearingKoyoScreen
@@ -40,6 +41,7 @@ fun IsekiParcomApp() {
         composable("bearing_koyo") { BearingKoyoScreen(navController) }
         composable("record_list_bearing_koyo") { RecordListBearingKoyoScreen(navController) }
         composable("bearing_shaft") { BearingShaftScreen(navController) }
+        composable("bearing_metal") { BearingMetalScreen(navController) }
     }
 
 }

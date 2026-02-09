@@ -23,36 +23,36 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-data class ScanResultShaft(
+data class ScanResultMetal(
     val sequenceNo: String,
     val tractorType: String,
     val productionDate: String,
-    val idComparison: Int = 2 // ID untuk Bearing Shaft
+    val idComparison: Int = 3 // ID untuk Bearing Metal
 )
 
-class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCameraViewModel {
+class BearingMetalViewModel(private val context: Context) : ViewModel(), YoloCameraViewModel {
     private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/testing"
     private val client = OkHttpClient()
 
-    // TFLite untuk deteksi part shaft
+    // TFLite untuk deteksi part metal
     private val tflitePart = TfliteInference(
         context,
-        "bearing_kbc/model_unquant.tflite",
-        "bearing_kbc/labels.txt"
+        "bearing_koyo/model_unquant.tflite",
+        "bearing_koyo/labels.txt"
     )
 
     // YOLOv8 untuk deteksi ball
     override val yoloDetector = YoloV8Inference(
         context,
-        "bearing_shaft/model_unquant.tflite" // Model YOLO
+        "bearing_metal/model_unquant.tflite" // Model YOLO
     )
 
     // State untuk scan QR
-    val scanResult = mutableStateOf<ScanResultShaft?>(null)
+    val scanResult = mutableStateOf<ScanResultMetal?>(null)
     val validationMessage = mutableStateOf<String?>(null)
     val showCaptureButton = mutableStateOf(false)
 
-    // State untuk foto part shaft
+    // State untuk foto part metal
     val capturedPartPhotoFile = mutableStateOf<File?>(null)
     val partDetectionResult = mutableStateOf<String?>(null)
     val showSecondCaptureButton = mutableStateOf(false)
@@ -106,7 +106,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
             val sequenceNo = parts[0].trim()
             val productionDate = parts[1].trim()
             val tractorType = parts[2].trim()
-            val newScanResult = ScanResultShaft(sequenceNo, tractorType, productionDate)
+            val newScanResult = ScanResultMetal(sequenceNo, tractorType, productionDate)
 
             resetScanStates()
             scanResult.value = newScanResult
@@ -125,7 +125,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
             try {
                 val json = JSONObject().apply {
                     put("sequence_no", result.sequenceNo)
-                    put("id_comparison", 2)
+                    put("id_comparison", 3)
                     put("production_date", result.productionDate)
                 }
 
@@ -133,7 +133,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
                 val body = RequestBody.create(mediaType, json.toString())
 
                 val request = Request.Builder()
-                    .url("$apiUrl/bearing-kbc/validate")
+                    .url("$apiUrl/bearing-koyo/validate")
                     .post(body)
                     .build()
 
@@ -161,7 +161,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
         val predictedClass = tflitePart.run(bitmap)
         partDetectionResult.value = predictedClass
 
-        if (predictedClass.lowercase() == "shaft bearing") {
+        if (predictedClass.lowercase() == "metal bearing") {
             showSecondCaptureButton.value = true
             showRetakePartButton.value = false
         } else {
@@ -177,16 +177,16 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
         viewModelScope.launch(Dispatchers.IO) {
             // Detect dengan threshold SANGAT TINGGI untuk foto final (isLivePreview = false)
             val detections = yoloDetector.detect(bitmap, isLivePreview = false) // Gunakan fungsi detect dengan threshold tinggi
-            Log.d("BearingShaftVM", "=== CAPTURED IMAGE DETECTION (PROCESSBEARINGIMAGE) ===")
-            Log.d("BearingShaftVM", "Total detections: ${detections.size}")
-            Log.d("BearingShaftVM", "Threshold used: ${yoloDetector.confidenceThreshold}")
+            Log.d("BearingMetalVM", "=== CAPTURED IMAGE DETECTION (PROCESSBEARINGIMAGE) ===")
+            Log.d("BearingMetalVM", "Total detections: ${detections.size}")
+            Log.d("BearingMetalVM", "Threshold used: ${yoloDetector.confidenceThreshold}")
 
             // Log hanya top 15 detections
             detections.take(15).forEachIndexed { idx, det ->
-                Log.d("BearingShaftVM", "Ball $idx: conf=${"%.4f".format(det.confidence)}, box=${det.box}")
+                Log.d("BearingMetalVM", "Ball $idx: conf=${"%.4f".format(det.confidence)}, box=${det.box}")
             }
             if (detections.size > 15) {
-                Log.d("BearingShaftVM", "... and ${detections.size - 15} more detections")
+                Log.d("BearingMetalVM", "... and ${detections.size - 15} more detections")
             }
 
             // Gambar boxes pada bitmap
@@ -216,11 +216,11 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
             // Tentukan OK/NG berdasarkan jumlah ball
             // Sesuaikan range ini sesuai spesifikasi bearing Anda
             val result = when {
-                count == 9 -> "OK"
+                count == 8 -> "OK"
                 else -> "NG"
             }
 
-            Log.d("BearingShaftVM", "Final Result determined: $result (count=$count)")
+            Log.d("BearingMetalVM", "Final Result determined: $result (count=$count)")
 
             withContext(Dispatchers.Main) {
                 // Set hasil final
@@ -259,7 +259,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
                     lastLiveDetections.value = detections
                 }
             } catch (e: Exception) {
-                Log.e("BearingShaftVM", "Error processing frame", e)
+                Log.e("BearingMetalVM", "Error processing frame", e)
             } finally {
                 // Delay untuk throttle (jangan process setiap frame)
                 delay(100) // Process max 10 fps
@@ -270,7 +270,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
 
     fun uploadResult() {
         if (isUploading.value) {
-            Log.d("BearingShaftVM", "Upload sedang berlangsung")
+            Log.d("BearingMetalVM", "Upload sedang berlangsung")
             return
         }
 
@@ -297,7 +297,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
                     .addFormDataPart("Id_Comparison", scan.idComparison.toString())
                     .addFormDataPart("No_Tractor_Record", scan.sequenceNo)
                     .addFormDataPart("Result_Record", result)
-                    .addFormDataPart("Text_Record", "9")
+                    .addFormDataPart("Text_Record", "8")
                     .addFormDataPart("Predict_Record", count.toString())
                     .addFormDataPart("Production_Date_Record", scan.productionDate)
 
@@ -335,7 +335,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
                 val requestBody = multipart.build()
 
                 val request = Request.Builder()
-                    .url("$apiUrl/bearing-kbc/save") // Pastikan ini endpoint yang benar untuk bearing shaft
+                    .url("$apiUrl/bearing-koyo/save") // Pastikan ini endpoint yang benar untuk bearing metal
                     .post(requestBody)
                     .build()
 
@@ -423,7 +423,7 @@ class BearingShaftViewModel(private val context: Context) : ViewModel(), YoloCam
     }
 
     fun resetLiveBearingCameraState() {
-        Log.d("BearingShaftVM", "Reset LIVE bearing camera state")
+        Log.d("BearingMetalVM", "Reset LIVE bearing camera state")
 
         // Live preview
         lastLiveBitmap.value = null

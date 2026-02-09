@@ -137,7 +137,7 @@ fun RecordListBearingKbcScreen(navController: NavHostController) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Bearing KBC", color = MaterialTheme.colorScheme.onPrimary) },
+                title = { Text("Bearing Shaft", color = MaterialTheme.colorScheme.onPrimary) },
                 navigationIcon = { // Tambahkan tombol back
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -180,7 +180,7 @@ fun RecordListBearingKbcScreen(navController: NavHostController) {
                 ) {
                     // 🔹 Tombol Scan di atas tabel
                     Button(
-                        onClick = { navController.navigate("bearing_kbc") },
+                        onClick = { navController.navigate("bearing_shaft") },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.secondary,
                             contentColor = Color.White

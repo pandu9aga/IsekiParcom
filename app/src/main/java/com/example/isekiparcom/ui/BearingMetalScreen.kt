@@ -31,15 +31,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.isekiparcom.QrScannerActivity
-import com.example.isekiparcom.viewmodel.BearingShaftViewModel
-import com.example.isekiparcom.viewmodel.BearingShaftViewModelFactory
+import com.example.isekiparcom.viewmodel.BearingMetalViewModel
+import com.example.isekiparcom.viewmodel.BearingMetalViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BearingMetalScreen(navController: NavHostController) {
     val context = LocalContext.current
-    val viewModel: BearingShaftViewModel = viewModel(
-        factory = BearingShaftViewModelFactory(context)
+    val viewModel: BearingMetalViewModel = viewModel(
+        factory = BearingMetalViewModelFactory(context)
     )
 
     var showCameraPart by remember { mutableStateOf(false) }
@@ -57,8 +57,8 @@ fun BearingMetalScreen(navController: NavHostController) {
     LaunchedEffect(viewModel.saveSuccess.value) {
         if (viewModel.saveSuccess.value == true) {
             Toast.makeText(context, "Berhasil disimpan!", Toast.LENGTH_SHORT).show()
-            navController.navigate("record_list_bearing_kbc") {
-                popUpTo("bearing_shaft") { inclusive = true }
+            navController.navigate("record_list_bearing_koyo") {
+                popUpTo("bearing_metal") { inclusive = true }
             }
         }
     }
@@ -69,7 +69,7 @@ fun BearingMetalScreen(navController: NavHostController) {
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            "Bearing Shaft",
+                            "Bearing Metal",
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     },
@@ -148,14 +148,14 @@ fun BearingMetalScreen(navController: NavHostController) {
                         onClick = { showCameraPart = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Ambil Foto Part Shaft")
+                        Text("Ambil Foto Part Metal")
                     }
                 }
 
                 // Hasil deteksi part
                 viewModel.partDetectionResult.value?.let { result ->
                     Spacer(Modifier.height(16.dp))
-                    val color = if (result.lowercase() == "shaft bearing") Color(0xFF4CAF50) else Color(0xFFE53935)
+                    val color = if (result.lowercase() == "metal bearing") Color(0xFF4CAF50) else Color(0xFFE53935)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -171,10 +171,10 @@ fun BearingMetalScreen(navController: NavHostController) {
                             fontWeight = FontWeight.Bold
                         )
                     }
-                    if (result.lowercase() == "shaft bearing") {
+                    if (result.lowercase() == "metal bearing") {
                         Text("Lanjutkan ke deteksi bearing...")
                     } else {
-                        Text("Part bukan Shaft Bearing. Silakan ambil ulang.")
+                        Text("Part bukan Metal Bearing. Silakan ambil ulang.")
                     }
                 }
 
