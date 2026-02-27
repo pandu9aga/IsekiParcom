@@ -1,0 +1,3 @@
+0 sxg3
+1 sf pendek
+2 sf panjang

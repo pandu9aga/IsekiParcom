@@ -12,8 +12,10 @@ import com.example.isekiparcom.ui.BearingKoyoScreen
 import com.example.isekiparcom.ui.BearingShaftScreen
 import com.example.isekiparcom.ui.BearingMetalScreen
 import com.example.isekiparcom.ui.DashboardScreen
+import com.example.isekiparcom.ui.JointUniversalScreen
 import com.example.isekiparcom.ui.RecordListBearingKbcScreen
 import com.example.isekiparcom.ui.RecordListBearingKoyoScreen
+import com.example.isekiparcom.ui.RecordListJointUniversalScreen
 import com.example.isekiparcom.ui.RecordListRingSynchronizerScreen
 import com.example.isekiparcom.ui.RingSynchronizerScreen
 import com.example.isekiparcom.ui.theme.IsekiParcomTheme
@@ -42,6 +44,8 @@ fun IsekiParcomApp() {
         composable("record_list_bearing_koyo") { RecordListBearingKoyoScreen(navController) }
         composable("bearing_shaft") { BearingShaftScreen(navController) }
         composable("bearing_metal") { BearingMetalScreen(navController) }
+        composable("joint_universal") { JointUniversalScreen(navController) }
+        composable("record_list_joint") { RecordListJointUniversalScreen(navController) }
     }
 
 }
