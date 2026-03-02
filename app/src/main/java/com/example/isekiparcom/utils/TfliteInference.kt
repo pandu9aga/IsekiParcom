@@ -17,7 +17,9 @@ import java.nio.channels.FileChannel
 class TfliteInference(
     context: Context,
     modelAssetPath: String, // Contoh: "ring_synchronizer/model_unquant.tflite"
-    labelsAssetPath: String // Contoh: "ring_synchronizer/labels.txt"
+    labelsAssetPath: String, // Contoh: "ring_synchronizer/labels.txt"
+    private val mean: Float = 0f,
+    private val std: Float = 255f
 ) {
     private var interpreter: Interpreter? = null
     private var labels = listOf<String>()
@@ -57,11 +59,11 @@ class TfliteInference(
         }
     }
 
-    // Fungsi untuk memuat labels dari assets
     private fun loadLabels(context: Context, labelsPath: String): List<String> {
         return context.assets.open(labelsPath)
             .bufferedReader()
             .readLines()
+            .filter { it.isNotBlank() } // 🔥 Filter baris kosong
     }
 
     fun run(bitmap: Bitmap): String {
@@ -87,7 +89,7 @@ class TfliteInference(
             val tensorImage = TensorImage.fromBitmap(bitmap)
             val processor = ImageProcessor.Builder()
                 .add(ResizeOp(height, width, ResizeOp.ResizeMethod.BILINEAR))
-                .add(NormalizeOp(0f, 255f)) // Sesuaikan dengan preprocessing modelmu
+                .add(NormalizeOp(mean, std)) // 🔥 Gunakan mean & std dari constructor
                 .build()
             val resized = processor.process(tensorImage)
 
@@ -97,6 +99,13 @@ class TfliteInference(
             interpreter.run(resized.buffer, outputBuffer.buffer)
 
             val probabilities = outputBuffer.floatArray
+            
+            // 🔥 Log all probabilities for debugging
+            Log.d(TAG, "=== ALL PROBABILITIES ===")
+            probabilities.forEachIndexed { index, prob ->
+                val labelAt = labels.getOrNull(index) ?: "???"
+                Log.d(TAG, "Index $index ($labelAt): ${"%.6f".format(prob)}")
+            }
             Log.d(TAG, "Raw output probabilities size: ${probabilities.size}")
 
             val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: 0

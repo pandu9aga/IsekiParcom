@@ -45,7 +45,8 @@ fun JointUniversalScreen(navController: NavHostController) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // AutoSnackbar saat validasi
+    // AutoSnackbar dihilangkan sesuai permintaan (cukup di card)
+    /*
     LaunchedEffect(viewModel.validationMessage.value) {
         viewModel.validationMessage.value?.let { msg ->
             snackbarHostState.showSnackbar(
@@ -53,6 +54,7 @@ fun JointUniversalScreen(navController: NavHostController) {
             )
         }
     }
+    */
 
     // Kembali ke list joint universal setelah save
     LaunchedEffect(viewModel.saveSuccess.value) {
@@ -149,7 +151,7 @@ fun JointUniversalScreen(navController: NavHostController) {
                 Spacer(Modifier.height(16.dp))
 
                 viewModel.validationMessage.value?.let { msg ->
-                    val success = msg.contains("berhasil", ignoreCase = true) || msg.contains("sukses", ignoreCase = true) || msg.contains("ditemukan", ignoreCase = true)
+                    val success = msg == "Semua proses sebelumnya sudah selesai. Siap melanjutkan."
                     val badgeColor = if (success) Color(0xFF4CAF50) else Color(0xFFE53935)
 
                     Box(
@@ -175,12 +177,17 @@ fun JointUniversalScreen(navController: NavHostController) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("AI Prediction:", color = MaterialTheme.colorScheme.onTertiaryContainer)
                             Text(
-                                predictRec, 
-                                color = MaterialTheme.colorScheme.onTertiaryContainer, 
-                                fontSize = 24.sp, 
-                                fontWeight = FontWeight.ExtraBold
+                                text = "Correct Part: ${viewModel.textRecord.value ?: "-"}",
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                text = "Prediction: $predictRec",
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -188,13 +195,27 @@ fun JointUniversalScreen(navController: NavHostController) {
 
                 Spacer(Modifier.height(16.dp))
                 
-                // Tombol hanya muncul jika validasi sukses
-                if (viewModel.showCaptureButton.value && !viewModel.showUploadButton.value) {
-                    Button(
-                        onClick = { showCamera = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Ambil Foto Part")
+                // Tombol Ambil Foto
+                if (viewModel.showCaptureButton.value) {
+                    if (!viewModel.showUploadButton.value) {
+                        Button(
+                            onClick = { showCamera = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Ambil Foto Part")
+                        }
+                    } else if (viewModel.resultStatus.value == "NG") {
+                        // Jika NG, izinkan ambil ulang
+                        OutlinedButton(
+                            onClick = { 
+                                viewModel.clearPhoto()
+                                showCamera = true 
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red)
+                        ) {
+                            Text("Ambil Ulang Foto (NG)")
+                        }
                     }
                 }
 
@@ -285,8 +306,7 @@ fun JointUniversalScreen(navController: NavHostController) {
             ) {
                 CameraCaptureScreen(
                     onPhotoCaptured = { file -> 
-                        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                        viewModel.processImage(bitmap)
+                        viewModel.processImage(file)
                         showCamera = false
                     },
                     onBack = { showCamera = false }

@@ -19,6 +19,9 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import android.media.ExifInterface
+import android.graphics.Matrix
+import android.graphics.BitmapFactory
 
 data class JointUniversalScanResult(
     val sequenceNo: String,
@@ -28,7 +31,7 @@ data class JointUniversalScanResult(
 class JointUniversalViewModel(private val context: Context) : ViewModel() {
     private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/testing/joint-universal"
     private val client = OkHttpClient()
-    private val tflite = TfliteInference(context, "joint_universal/model_unquant.tflite", "joint_universal/labels.txt")
+    private val tflite = TfliteInference(context, "joint_universal/model_unquant.tflite", "joint_universal/labels.txt", 127.5f, 127.5f)
 
     val scanResult = mutableStateOf<JointUniversalScanResult?>(null)
     
@@ -51,9 +54,13 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
 
     val isUploading = mutableStateOf(false)
 
-    fun processImage(bitmap: Bitmap) {
+    fun processImage(photoFile: File) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
+                // 🔥 Ambil bitmap dan perbaiki rotasi berdasarkan EXIF
+                val originalBitmap = BitmapFactory.decodeFile(photoFile.absolutePath)
+                val bitmap = rotateBitmapIfRequired(originalBitmap, photoFile)
+                
                 // Get prediction and uppercase it as requested
                 val predictedCodeRaw = tflite.run(bitmap).trim()
                 val predictedCodeUpper = predictedCodeRaw.uppercase()
@@ -134,6 +141,7 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
                 // Create Request JSON matching Web API implementation for Joint Universal
                 val json = JSONObject().apply {
                     put("sequence_no", result.sequenceNo)
+                    put("id_comparison", 4) // Added id_comparison for Joint Universal
                     put("production_date", result.productionDate)
                 }
 
@@ -142,6 +150,7 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
 
                 val request = Request.Builder()
                     .url("$apiUrl/validate")
+                    .addHeader("Accept", "application/json")
                     .post(body)
                     .build()
                     
@@ -158,11 +167,8 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
                     validationMessage.value = message
                     if (success) {
                         // Web API returns model_name and text_record on success
-                        val dataObj = respJson.optJSONObject("data")
-                        if (dataObj != null) {
-                            modelNamePlan.value = dataObj.optString("model_name")
-                            textRecord.value = dataObj.optString("text_record")
-                        }
+                        modelNamePlan.value = respJson.optString("model_name")
+                        textRecord.value = respJson.optString("text_record")
                         showCaptureButton.value = true
                     } else {
                         showCaptureButton.value = false
@@ -225,6 +231,7 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
             try {
                 val request = Request.Builder()
                     .url("$apiUrl/save")
+                    .addHeader("Accept", "application/json")
                     .post(requestBody)
                     .build()
                 val response = client.newCall(request).execute()
@@ -254,6 +261,28 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
         }
     }
 
+    private fun rotateBitmapIfRequired(bitmap: Bitmap, file: File): Bitmap {
+        val exifInterface = ExifInterface(file.absolutePath)
+        val orientation = exifInterface.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_NORMAL
+        )
+
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+            else -> return bitmap
+        }
+
+        val rotatedBitmap = Bitmap.createBitmap(
+            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+        )
+        bitmap.recycle() // Bebaskan memori bitmap lama
+        return rotatedBitmap
+    }
+
     override fun onCleared() {
         tflite.close()
         super.onCleared()
@@ -272,5 +301,13 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
         capturedPhotoFile.value = null
         showUploadButton.value = false
         saveSuccess.value = null
+    }
+
+    fun clearPhoto() {
+        resultStatus.value = null
+        predictRecord.value = null
+        capturedPhotoFile.value = null
+        showUploadButton.value = false
+        popupFinished.value = false
     }
 }
