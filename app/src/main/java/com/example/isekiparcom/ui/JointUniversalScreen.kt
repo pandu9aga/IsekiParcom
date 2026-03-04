@@ -164,19 +164,19 @@ fun JointUniversalScreen(navController: NavHostController) {
                         Text(msg, color = Color.White, fontWeight = FontWeight.Medium)
                     }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(5.dp))
                 }
 
                 // AI PREDICTION RESULT BADGE
                 viewModel.predictRecord.value?.let { predictRec ->
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(5.dp))
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.Start) {
                             Text(
                                 text = "Correct Part: ${viewModel.textRecord.value ?: "-"}",
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
@@ -186,14 +186,13 @@ fun JointUniversalScreen(navController: NavHostController) {
                             Text(
                                 text = "Prediction: $predictRec",
                                 color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(8.dp))
                 
                 // Tombol Ambil Foto
                 if (viewModel.showCaptureButton.value) {

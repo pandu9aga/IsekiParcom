@@ -22,6 +22,10 @@ import java.io.FileOutputStream
 import android.media.ExifInterface
 import android.graphics.Matrix
 import android.graphics.BitmapFactory
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.android.gms.tasks.Tasks
 
 data class JointUniversalScanResult(
     val sequenceNo: String,
@@ -63,8 +67,25 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
                 
                 // Get prediction and uppercase it as requested
                 val predictedCodeRaw = tflite.run(bitmap).trim()
-                val predictedCodeUpper = predictedCodeRaw.uppercase()
+                var predictedCodeUpper = predictedCodeRaw.uppercase()
                 
+                // 🔥 Jika SF PANJANG atau SXG 3, lakukan OCR untuk memastikan
+                if (predictedCodeUpper == "SF PANJANG" || predictedCodeUpper == "SXG 3") {
+                    val ocrText = runOcr(bitmap).lowercase()
+                    Log.d("OCR", "OCR Result: $ocrText")
+                    
+                    if (ocrText.contains("matsui")) {
+                        predictedCodeUpper = "SF PANJANG"
+                        Log.d("OCR", "Forced to SF PANJANG due to 'matsui'")
+                    } else if (ocrText.contains("missing")) {
+                        predictedCodeUpper = "SXG 3"
+                        Log.d("OCR", "Forced to SXG 3 due to 'missing'")
+                    } else {
+                        predictedCodeUpper = "SF PENDEK"
+                        Log.d("OCR", "Forced to SF PENDEK due to ''")
+                    }
+                }
+
                 val expectedTextRecord = textRecord.value ?: ""
                 
                 // Compare Predict_Record (UPPERCASE) with Text_Record
@@ -258,6 +279,19 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
                     isUploading.value = false
                 }
             }
+        }
+    }
+
+    private suspend fun runOcr(bitmap: Bitmap): String = withContext(Dispatchers.IO) {
+        try {
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            val image = InputImage.fromBitmap(bitmap, 0)
+            val task = recognizer.process(image)
+            val result = Tasks.await(task)
+            result.text
+        } catch (e: Exception) {
+            Log.e("OCR", "OCR Error", e)
+            ""
         }
     }
 
