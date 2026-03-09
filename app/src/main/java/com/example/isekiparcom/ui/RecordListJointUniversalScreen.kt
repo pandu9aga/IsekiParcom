@@ -74,7 +74,7 @@ fun RecordListJointUniversalScreen(navController: NavHostController) {
                         RecordJointItem(
                             id = obj.optInt("Id_Record"),
                             noTractor = obj.optString("No_Tractor_Record"),
-                            modelNamePlan = obj.optString("Model_Name_Plan", "-"),
+                            modelNamePlan = obj.optString("tractor_name"),
                             textRecord = obj.optString("Text_Record", "-"),
                             predictRecord = obj.optString("Predict_Record", "-"),
                             result = obj.optString("Result_Record", "-"),
@@ -112,7 +112,7 @@ fun RecordListJointUniversalScreen(navController: NavHostController) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("List - Joint Universal", color = MaterialTheme.colorScheme.onPrimary) },
+                title = { Text("Joint Universal", color = MaterialTheme.colorScheme.onPrimary) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -177,7 +177,7 @@ fun RecordListJointUniversalScreen(navController: NavHostController) {
                     ) {
                         HeaderText("No", 30.dp)
                         HeaderText("Sequence No", 80.dp)
-                        HeaderText("Model", 90.dp)
+                        HeaderText("Name Tractor", 90.dp)
                         HeaderText("Text", 90.dp)
                         HeaderText("Predict", 90.dp)
                         HeaderText("Result", 60.dp)

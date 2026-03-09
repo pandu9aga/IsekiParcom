@@ -31,7 +31,7 @@ data class ScanResultMetal(
 )
 
 class BearingMetalViewModel(private val context: Context) : ViewModel(), YoloCameraViewModel {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/testing"
+    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api"
     private val client = OkHttpClient()
 
     // TFLite untuk deteksi part metal

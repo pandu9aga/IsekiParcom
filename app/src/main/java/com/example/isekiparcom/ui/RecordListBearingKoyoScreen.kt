@@ -92,7 +92,7 @@ fun RecordListBearingKoyoScreen(navController: NavHostController) {
                         BearingKoyoRecordItem( // Gunakan class baru
                             id = obj.optInt("Id_Record"),
                             noTractor = obj.optString("No_Tractor_Record"),
-                            nameTractor = tractorType,
+                            nameTractor = obj.optString("tractor_name"),
                             comparison = comparisonName,
                             codePart = partCode,
                             result = obj.optString("Result_Record"),

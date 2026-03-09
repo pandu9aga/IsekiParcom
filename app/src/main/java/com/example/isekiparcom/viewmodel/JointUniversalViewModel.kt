@@ -33,7 +33,7 @@ data class JointUniversalScanResult(
 )
 
 class JointUniversalViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/testing/joint-universal"
+    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/joint-universal"
     private val client = OkHttpClient()
     private val tflite = TfliteInference(context, "joint_universal/model_unquant.tflite", "joint_universal/labels.txt", 127.5f, 127.5f)
 

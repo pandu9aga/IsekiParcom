@@ -85,7 +85,7 @@ fun RecordListRingSynchronizerScreen(navController: NavHostController) {
                         RecordItem(
                             id = obj.optInt("Id_Record"), // Gunakan optInt
                             noTractor = obj.optString("No_Tractor_Record"),
-                            nameTractor = tractorType,
+                            nameTractor = obj.optString("tractor_name"),
                             comparison = comparisonName,
                             codePart = partCode,
                             result = obj.optString("Result_Record"),
