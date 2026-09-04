@@ -35,7 +35,7 @@ data class ScanResultKbc(
 )
 
 class BearingKbcViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api"
+    private val apiUrl = "http://192.168.173.201/iseki_parcom/public/api"
     private val client = OkHttpClient()
     // 🔥 Gunakan path model yang benar untuk Bearing KBC
     private val tflitePart = TfliteInference(context, "bearing_kbc/model_unquant.tflite", "bearing_kbc/labels.txt")

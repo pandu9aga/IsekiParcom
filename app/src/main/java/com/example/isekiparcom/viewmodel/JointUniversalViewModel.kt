@@ -33,7 +33,7 @@ data class JointUniversalScanResult(
 )
 
 class JointUniversalViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api/joint-universal"
+    private val apiUrl = "http://192.168.173.201/iseki_parcom/public/api/joint-universal"
     private val client = OkHttpClient()
     private val tflite = TfliteInference(context, "joint_universal/model_unquant.tflite", "joint_universal/labels.txt", 127.5f, 127.5f)
 
@@ -69,21 +69,25 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
                 val predictedCodeRaw = tflite.run(bitmap).trim()
                 var predictedCodeUpper = predictedCodeRaw.uppercase()
                 
-                // 🔥 Jika SF PANJANG atau SXG 3, lakukan OCR untuk memastikan
-                if (predictedCodeUpper == "SF PANJANG" || predictedCodeUpper == "SXG 3") {
-                    val ocrText = runOcr(bitmap).lowercase()
-                    Log.d("OCR", "OCR Result: $ocrText")
-                    
-                    if (ocrText.contains("matsui")) {
-                        predictedCodeUpper = "SF PANJANG"
-                        Log.d("OCR", "Forced to SF PANJANG due to 'matsui'")
-                    } else if (ocrText.contains("missing")) {
-                        predictedCodeUpper = "SXG 3"
-                        Log.d("OCR", "Forced to SXG 3 due to 'missing'")
-                    } else {
-                        predictedCodeUpper = "SF PENDEK"
-                        Log.d("OCR", "Forced to SF PENDEK due to ''")
-                    }
+                // Lakukan OCR untuk memastikan dan membedakan tipe part
+                val ocrText = runOcr(bitmap).lowercase()
+                Log.d("OCR", "OCR Result: $ocrText")
+
+                if (ocrText.contains("matsui")) {
+                    predictedCodeUpper = "SF PANJANG"
+                    Log.d("OCR", "Forced to SF PANJANG due to 'matsui'")
+                } else if (ocrText.contains("missing")) {
+                    predictedCodeUpper = "SXG 3"
+                    Log.d("OCR", "Forced to SXG 3 due to 'missing'")
+                } else if (ocrText.contains("working")) {
+                    predictedCodeUpper = "SF PENDEK"
+                    Log.d("OCR", "Forced to SF PENDEK due to 'working'")
+                } else if (ocrText.contains("work")) {
+                    predictedCodeUpper = "SF KOTET"
+                    Log.d("OCR", "Forced to SF KOTET due to 'work'")
+                } else if (predictedCodeUpper == "SF PANJANG" || predictedCodeUpper == "SXG 3") {
+                    predictedCodeUpper = "SF PENDEK"
+                    Log.d("OCR", "Fallback to SF PENDEK")
                 }
 
                 val expectedTextRecord = textRecord.value ?: ""

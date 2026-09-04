@@ -35,7 +35,7 @@ data class ScanResultKoyo(
 )
 
 class BearingKoyoViewModel(private val context: Context) : ViewModel() {
-    private val apiUrl = "http://192.168.173.207/iseki_parcom/public/api"
+    private val apiUrl = "http://192.168.173.201/iseki_parcom/public/api"
     private val client = OkHttpClient()
     // 🔥 Gunakan path model yang benar untuk Bearing KOYO
     private val tflitePart = TfliteInference(context, "bearing_koyo/model_unquant.tflite", "bearing_koyo/labels.txt")

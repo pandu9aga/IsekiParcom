@@ -55,7 +55,7 @@ fun RecordListBearingKoyoScreen(navController: NavHostController) {
     fun fetchRecords() {
         scope.launch(Dispatchers.IO) {
             try {
-                val url = "http://192.168.173.207/iseki_parcom/public/api/bearing-koyo/index"
+                val url = "http://192.168.173.201/iseki_parcom/public/api/bearing-koyo/index"
                 val request = Request.Builder().url(url).build()
                 val response = client.newCall(request).execute()
 
