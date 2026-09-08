@@ -73,22 +73,23 @@ class JointUniversalViewModel(private val context: Context) : ViewModel() {
                 val ocrText = runOcr(bitmap).lowercase()
                 Log.d("OCR", "OCR Result: $ocrText")
 
-                if (ocrText.contains("matsui")) {
+                if (ocrText.contains("matsui") && ocrText.contains("danger")) {
                     predictedCodeUpper = "SF PANJANG"
-                    Log.d("OCR", "Forced to SF PANJANG due to 'matsui'")
+                    Log.d("OCR", "Forced to SF PANJANG due to 'matsui' & 'danger'")
+                } else if (ocrText.contains("matsui") && ocrText.contains("working")) {
+                    predictedCodeUpper = "SF PENDEK"
+                    Log.d("OCR", "Forced to SF PENDEK due to 'matsui' & 'working'")
+                } else if (ocrText.contains("matsui") && ocrText.contains("work")) {
+                    predictedCodeUpper = "SF KOTET"
+                    Log.d("OCR", "Forced to SF KOTET due to 'matsui' & 'work'")
                 } else if (ocrText.contains("missing")) {
                     predictedCodeUpper = "SXG 3"
                     Log.d("OCR", "Forced to SXG 3 due to 'missing'")
-                } else if (ocrText.contains("working")) {
-                    predictedCodeUpper = "SF PENDEK"
-                    Log.d("OCR", "Forced to SF PENDEK due to 'working'")
-                } else if (ocrText.contains("work")) {
-                    predictedCodeUpper = "SF KOTET"
-                    Log.d("OCR", "Forced to SF KOTET due to 'work'")
-                } else if (predictedCodeUpper == "SF PANJANG" || predictedCodeUpper == "SXG 3") {
-                    predictedCodeUpper = "SF PENDEK"
-                    Log.d("OCR", "Fallback to SF PENDEK")
                 }
+//                else if (predictedCodeUpper == "SF PANJANG" || predictedCodeUpper == "SXG 3") {
+//                    predictedCodeUpper = "SF PENDEK"
+//                    Log.d("OCR", "Fallback to SF PENDEK")
+//                }
 
                 val expectedTextRecord = textRecord.value ?: ""
                 
