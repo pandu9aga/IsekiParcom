@@ -102,6 +102,56 @@ fun DashboardScreen(navController: NavHostController) {
 
                     Spacer(modifier = Modifier.height(32.dp))
 
+                    // 🔹 Kartu untuk Shaft GC
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        shape = MaterialTheme.shapes.extraLarge,
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.6f),
+                            contentColor = MaterialTheme.colorScheme.primary,
+                            disabledContainerColor = Color.Transparent,
+                            disabledContentColor = Color.Transparent
+                        ),
+                        elevation = CardDefaults.cardElevation(0.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Shaft GC",
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                // 🔸 Tombol Scan Shaft GC
+                                Button(
+                                    onClick = { navController.navigate("shaft_gc") },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondary
+                                    ),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(50.dp)
+                                ) {
+                                    Text("Scan", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+
                     // 🔹 Kartu untuk Ring Synchronizer
                     Card(
                         modifier = Modifier

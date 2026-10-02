@@ -36,6 +36,7 @@ fun IsekiParcomApp() {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
+        composable("shaft_gc") { com.example.isekiparcom.ui.ShaftGcScreen(navController) }
         composable("ring_synchronizer") { RingSynchronizerScreen(navController) }
         composable("record_list_ring") { RecordListRingSynchronizerScreen(navController) }
         composable("bearing_kbc") { BearingKbcScreen(navController) }
