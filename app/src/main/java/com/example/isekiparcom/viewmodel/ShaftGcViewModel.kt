@@ -62,7 +62,8 @@ class ShaftGcViewModel(private val context: Context) : ViewModel() {
 
             try {
                 val response = client.newCall(request).execute()
-                val respJson = JSONObject(response.body?.string())
+                val responseBodyStr = response.body?.string() ?: "{}"
+                val respJson = JSONObject(responseBodyStr)
                 val status = respJson.optString("status")
                 val message = respJson.optString("message")
 
@@ -156,7 +157,8 @@ class ShaftGcViewModel(private val context: Context) : ViewModel() {
                     .post(requestBody)
                     .build()
                 val response = client.newCall(request).execute()
-                val json = JSONObject(response.body?.string())
+                val responseBodyStr = response.body?.string() ?: "{}"
+                val json = JSONObject(responseBodyStr)
                 if (json.optString("status") == "success") {
                     withContext(Dispatchers.Main) {
                         saveSuccess.value = true

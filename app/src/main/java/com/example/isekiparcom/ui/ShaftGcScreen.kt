@@ -43,12 +43,12 @@ fun ShaftGcScreen(navController: NavHostController) {
 
     if (showCamera) {
         CameraCaptureScreen(
-            onImageCaptured = { file ->
+            onPhotoCaptured = { file ->
                 showCamera = false
                 val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                 viewModel.processImage(bitmap)
             },
-            onCancel = { showCamera = false }
+            onBack = { showCamera = false }
         )
         return
     }
