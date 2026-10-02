@@ -13,6 +13,7 @@ import com.example.isekiparcom.ui.BearingShaftScreen
 import com.example.isekiparcom.ui.BearingMetalScreen
 import com.example.isekiparcom.ui.DashboardScreen
 import com.example.isekiparcom.ui.ShaftGcScreen
+import com.example.isekiparcom.ui.RecordListShaftGcScreen
 import com.example.isekiparcom.ui.JointUniversalScreen
 import com.example.isekiparcom.ui.RecordListBearingKbcScreen
 import com.example.isekiparcom.ui.RecordListBearingKoyoScreen
@@ -38,6 +39,7 @@ fun IsekiParcomApp() {
     NavHost(navController = navController, startDestination = "dashboard") {
         composable("dashboard") { DashboardScreen(navController) }
         composable("shaft_gc") { ShaftGcScreen(navController) }
+        composable("record_list_shaft_gc") { RecordListShaftGcScreen(navController) }
         composable("ring_synchronizer") { RingSynchronizerScreen(navController) }
         composable("record_list_ring") { RecordListRingSynchronizerScreen(navController) }
         composable("bearing_kbc") { BearingKbcScreen(navController) }
